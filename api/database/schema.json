@@ -1,0 +1,1408 @@
+{
+    "accident_vehicules": {
+        "columns": {
+            "id": {
+                "type": "int(10) unsigned",
+                "nullable": false,
+                "default": null,
+                "extra": "auto_increment"
+            },
+            "accident_id": {
+                "type": "int(10) unsigned",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "vehicule_plaque_id": {
+                "type": "int(10) unsigned",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "role": {
+                "type": "varchar(50)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "dommages": {
+                "type": "text",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "notes": {
+                "type": "varchar(255)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": true,
+                "default": "current_timestamp()",
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ],
+            "idx_accident_id": [
+                "accident_id"
+            ],
+            "idx_vehicule_id": [
+                "vehicule_plaque_id"
+            ]
+        }
+    },
+    "accidents": {
+        "columns": {
+            "id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": "auto_increment"
+            },
+            "date_accident": {
+                "type": "datetime",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "lieu": {
+                "type": "varchar(100)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "gravite": {
+                "type": "varchar(200)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "description": {
+                "type": "longtext",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "images": {
+                "type": "longtext",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": "current_timestamp()",
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ]
+        }
+    },
+    "activites": {
+        "columns": {
+            "id": {
+                "type": "int(11)",
+                "nullable": false,
+                "default": null,
+                "extra": "auto_increment"
+            },
+            "username": {
+                "type": "varchar(100)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "action": {
+                "type": "varchar(255)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "details_operation": {
+                "type": "text",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "ip_address": {
+                "type": "varchar(45)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "user_agent": {
+                "type": "text",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "timestamp",
+                "nullable": false,
+                "default": "current_timestamp()",
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ],
+            "idx_action": [
+                "action"
+            ],
+            "idx_date": [
+                "created_at"
+            ],
+            "idx_activites_id_user": [
+                "username"
+            ],
+            "idx_activites_username": [
+                "username"
+            ]
+        }
+    },
+    "agents": {
+        "columns": {
+            "id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": "auto_increment"
+            },
+            "matricule": {
+                "type": "longtext",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "nom": {
+                "type": "varchar(30)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "postnom": {
+                "type": "varchar(30)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "poste": {
+                "type": "varchar(59)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": "current_timestamp()",
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ]
+        }
+    },
+    "arrestations": {
+        "columns": {
+            "id": {
+                "type": "int(10) unsigned",
+                "nullable": false,
+                "default": null,
+                "extra": "auto_increment"
+            },
+            "particulier_id": {
+                "type": "int(10) unsigned",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "motif": {
+                "type": "text",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "lieu": {
+                "type": "varchar(255)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "date_arrestation": {
+                "type": "datetime",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "date_sortie_prison": {
+                "type": "datetime",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_by": {
+                "type": "varchar(100)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "updated_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ],
+            "idx_particulier": [
+                "particulier_id"
+            ],
+            "idx_created_at": [
+                "created_at"
+            ]
+        }
+    },
+    "assurance_vehicule": {
+        "columns": {
+            "id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": "auto_increment"
+            },
+            "vehicule_plaque_id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "societe_assurance": {
+                "type": "varchar(255)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "nume_assurance": {
+                "type": "varchar(100)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "date_valide_assurance": {
+                "type": "date",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "date_expire_assurance": {
+                "type": "date",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "montant_prime": {
+                "type": "decimal(10,2)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "type_couverture": {
+                "type": "varchar(100)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "notes": {
+                "type": "text",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "timestamp",
+                "nullable": true,
+                "default": "current_timestamp()",
+                "extra": ""
+            },
+            "updated_at": {
+                "type": "timestamp",
+                "nullable": true,
+                "default": "current_timestamp()",
+                "extra": "on update current_timestamp()"
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ],
+            "idx_vehicule_plaque_id": [
+                "vehicule_plaque_id"
+            ],
+            "idx_date_expire": [
+                "date_expire_assurance"
+            ],
+            "idx_created_at": [
+                "created_at"
+            ]
+        }
+    },
+    "avis_recherche": {
+        "columns": {
+            "id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": "auto_increment"
+            },
+            "cible_type": {
+                "type": "varchar(50)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "cible_id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "motif": {
+                "type": "text",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "niveau": {
+                "type": "varchar(20)",
+                "nullable": false,
+                "default": "moyen",
+                "extra": ""
+            },
+            "statut": {
+                "type": "varchar(20)",
+                "nullable": false,
+                "default": "actif",
+                "extra": ""
+            },
+            "created_by": {
+                "type": "varchar(100)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "updated_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ],
+            "idx_cible_statut": [
+                "cible_type",
+                "cible_id",
+                "statut"
+            ],
+            "idx_statut": [
+                "statut"
+            ]
+        }
+    },
+    "conducteur_vehicule": {
+        "columns": {
+            "id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": "auto_increment"
+            },
+            "nom": {
+                "type": "varchar(200)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "numero_permis": {
+                "type": "varchar(200)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "date_naissance": {
+                "type": "datetime",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "adresse": {
+                "type": "longtext",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "photo": {
+                "type": "longtext",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "permis_recto": {
+                "type": "longtext",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "permis_verso": {
+                "type": "longtext",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "permis_valide_le": {
+                "type": "datetime",
+                "nullable": false,
+                "default": "current_timestamp()",
+                "extra": ""
+            },
+            "permis_expire_le": {
+                "type": "datetime",
+                "nullable": true,
+                "default": "current_timestamp()",
+                "extra": ""
+            },
+            "observations": {
+                "type": "longtext",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": "current_timestamp()",
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ]
+        }
+    },
+    "contraventions": {
+        "columns": {
+            "id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "dossier_id": {
+                "type": "varchar(30)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "type_dossier": {
+                "type": "varchar(70)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "date_infraction": {
+                "type": "datetime",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "lieu": {
+                "type": "longtext",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "type_infraction": {
+                "type": "longtext",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "description": {
+                "type": "longtext",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "reference_loi": {
+                "type": "longtext",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "amende": {
+                "type": "varchar(200)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "payed": {
+                "type": "varchar(10)",
+                "nullable": false,
+                "default": "non",
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": "current_timestamp()",
+                "extra": ""
+            },
+            "photos": {
+                "type": "text",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ]
+        }
+    },
+    "entreprise_vehicule": {
+        "columns": {
+            "id": {
+                "type": "bigint(20) unsigned",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "entreprise_id": {
+                "type": "bigint(20) unsigned",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "vehicule_plaque_id": {
+                "type": "int(10) unsigned",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "date_assoc": {
+                "type": "datetime",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "notes": {
+                "type": "varchar(255)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": true,
+                "default": "current_timestamp()",
+                "extra": ""
+            },
+            "created_by": {
+                "type": "varchar(100)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ],
+            "idx_entreprise_vehicule_eid": [
+                "entreprise_id"
+            ],
+            "idx_entreprise_vehicule_vid": [
+                "vehicule_plaque_id"
+            ]
+        }
+    },
+    "entreprises": {
+        "columns": {
+            "id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "designation": {
+                "type": "varchar(250)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "siege_social": {
+                "type": "longtext",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "gsm": {
+                "type": "varchar(30)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "email": {
+                "type": "varchar(50)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "personne_contact": {
+                "type": "varchar(29)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "fonction_contact": {
+                "type": "varchar(100)",
+                "nullable": false,
+                "default": "",
+                "extra": ""
+            },
+            "telephone_contact": {
+                "type": "varchar(20)",
+                "nullable": false,
+                "default": "",
+                "extra": ""
+            },
+            "rccm": {
+                "type": "varchar(70)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "secteur": {
+                "type": "varchar(70)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "observations": {
+                "type": "longtext",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": "current_timestamp()",
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ]
+        }
+    },
+    "particulier_vehicule": {
+        "columns": {
+            "id": {
+                "type": "int(10) unsigned",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "particulier_id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "vehicule_plaque_id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "role": {
+                "type": "varchar(50)",
+                "nullable": false,
+                "default": "proprietaire",
+                "extra": ""
+            },
+            "date_assoc": {
+                "type": "datetime",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "notes": {
+                "type": "text",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_by": {
+                "type": "varchar(100)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            }
+        },
+        "primary_key": null,
+        "indexes": []
+    },
+    "particuliers": {
+        "columns": {
+            "id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "nom": {
+                "type": "varchar(100)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "adresse": {
+                "type": "longtext",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "profession": {
+                "type": "varchar(40)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "date_naissance": {
+                "type": "datetime",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "genre": {
+                "type": "varchar(10)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "numero_national": {
+                "type": "varchar(50)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "gsm": {
+                "type": "varchar(20)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "email": {
+                "type": "varchar(90)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "lieu_naissance": {
+                "type": "varchar(120)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "nationalite": {
+                "type": "varchar(90)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "etat_civil": {
+                "type": "varchar(50)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "personne_contact": {
+                "type": "varchar(200)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "personne_contact_telephone": {
+                "type": "varchar(20)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "observations": {
+                "type": "longtext",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "photo": {
+                "type": "varchar(255)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": "current_timestamp()",
+                "extra": ""
+            },
+            "permis_recto": {
+                "type": "varchar(255)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "permis_verso": {
+                "type": "varchar(255)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "permis_date_emission": {
+                "type": "date",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "permis_date_expiration": {
+                "type": "date",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ]
+        }
+    },
+    "permis_temporaire": {
+        "columns": {
+            "id": {
+                "type": "int(10) unsigned",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "cible_type": {
+                "type": "enum('particulier','conducteur','vehicule_plaque')",
+                "nullable": false,
+                "default": "particulier",
+                "extra": ""
+            },
+            "cible_id": {
+                "type": "bigint(20) unsigned",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "numero": {
+                "type": "varchar(50)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "motif": {
+                "type": "text",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "date_debut": {
+                "type": "date",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "date_fin": {
+                "type": "date",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "statut": {
+                "type": "enum('actif','clos')",
+                "nullable": false,
+                "default": "actif",
+                "extra": ""
+            },
+            "pdf_path": {
+                "type": "varchar(255)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_by": {
+                "type": "varchar(100)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "updated_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ],
+            "uniq_permis_temporaire_numero": [
+                "numero"
+            ],
+            "idx_permis_temporaire_cible": [
+                "cible_type",
+                "cible_id"
+            ],
+            "idx_permis_temporaire_statut": [
+                "statut"
+            ],
+            "idx_permis_temporaire_pdf_path": [
+                "pdf_path"
+            ]
+        }
+    },
+    "roles": {
+        "columns": {
+            "id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "level": {
+                "type": "int(11)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "description": {
+                "type": "varchar(30)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": "current_timestamp()",
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ]
+        }
+    },
+    "temoins": {
+        "columns": {
+            "id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "id_accident": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "nom": {
+                "type": "varchar(200)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "telephone": {
+                "type": "varchar(30)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "age": {
+                "type": "varchar(40)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "lien_avec_accident": {
+                "type": "varchar(250)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "temoignage": {
+                "type": "longtext",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": "current_timestamp()",
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ]
+        }
+    },
+    "users": {
+        "columns": {
+            "id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": "auto_increment"
+            },
+            "username": {
+                "type": "varchar(70)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "password": {
+                "type": "longtext",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "telephone": {
+                "type": "varchar(40)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "first_connection": {
+                "type": "varchar(10)",
+                "nullable": false,
+                "default": "yes",
+                "extra": ""
+            },
+            "role": {
+                "type": "varchar(30)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "matricule": {
+                "type": "varchar(50)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "poste": {
+                "type": "varchar(70)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "photo": {
+                "type": "longtext",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "updated_at": {
+                "type": "datetime",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "status": {
+                "type": "varchar(30)",
+                "nullable": false,
+                "default": "active",
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": "current_timestamp()",
+                "extra": ""
+            },
+            "login_schedule": {
+                "type": "text",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "statut": {
+                "type": "varchar(20)",
+                "nullable": true,
+                "default": "actif",
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ],
+            "matricule": [
+                "matricule"
+            ],
+            "idx_users_matricule": [
+                "matricule"
+            ],
+            "idx_users_role": [
+                "role"
+            ],
+            "idx_users_statut": [
+                "statut"
+            ]
+        }
+    },
+    "vehicule_plaque": {
+        "columns": {
+            "id": {
+                "type": "bigint(20)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "images": {
+                "type": "longtext",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "marque": {
+                "type": "varchar(80)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "annee": {
+                "type": "varchar(10)",
+                "nullable": false,
+                "default": null,
+                "extra": ""
+            },
+            "couleur": {
+                "type": "varchar(50)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "modele": {
+                "type": "varchar(100)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "numero_chassis": {
+                "type": "varchar(250)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "frontiere_entree": {
+                "type": "varchar(191)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "date_importation": {
+                "type": "date",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "plaque": {
+                "type": "varchar(20)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "plaque_valide_le": {
+                "type": "datetime",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "plaque_expire_le": {
+                "type": "datetime",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "en_circulation": {
+                "type": "tinyint(1)",
+                "nullable": false,
+                "default": "1",
+                "extra": ""
+            },
+            "nume_assurance": {
+                "type": "varchar(90)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "date_expire_assurance": {
+                "type": "datetime",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "date_valide_assurance": {
+                "type": "datetime",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "societe_assurance": {
+                "type": "varchar(90)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "genre": {
+                "type": "varchar(100)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "usage": {
+                "type": "varchar(150)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "numero_declaration": {
+                "type": "varchar(150)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "num_moteur": {
+                "type": "varchar(150)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "origine": {
+                "type": "varchar(150)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "source": {
+                "type": "varchar(150)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "annee_fab": {
+                "type": "varchar(10)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "annee_circ": {
+                "type": "varchar(10)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "type_em": {
+                "type": "varchar(100)",
+                "nullable": true,
+                "default": null,
+                "extra": ""
+            },
+            "created_at": {
+                "type": "datetime",
+                "nullable": false,
+                "default": "current_timestamp()",
+                "extra": ""
+            }
+        },
+        "primary_key": "id",
+        "indexes": {
+            "PRIMARY": [
+                "id"
+            ]
+        }
+    }
+}
