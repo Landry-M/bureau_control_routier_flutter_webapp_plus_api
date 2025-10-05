@@ -6,10 +6,9 @@ import 'screens/first_connection_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/logs/logs_screen.dart';
 import 'screens/activity_report_screen.dart';
+import 'screens/all_records_screen.dart';
 import 'screens/alerts_screen.dart';
 import 'screens/vehicules_screen.dart';
-import 'screens/particuliers_screen.dart';
-import 'screens/entreprises_screen.dart';
 import 'screens/contraventions_screen.dart';
 import 'screens/accidents_screen.dart';
 import 'screens/avis_recherche_screen.dart';
@@ -35,13 +34,15 @@ GoRouter createRouter(AuthProvider auth) {
       if (!loggedIn && !loggingIn) return '/login';
 
       // If logged in but first connection, redirect to first connection page
-      if (loggedIn && isFirstConnection && !onFirstConnection) return '/first-connection';
+      if (loggedIn && isFirstConnection && !onFirstConnection)
+        return '/first-connection';
 
       // If logged in, not first connection, and on login page, redirect to dashboard
       if (loggedIn && !isFirstConnection && loggingIn) return '/dashboard';
 
       // If logged in, not first connection, and on first connection page, redirect to dashboard
-      if (loggedIn && !isFirstConnection && onFirstConnection) return '/dashboard';
+      if (loggedIn && !isFirstConnection && onFirstConnection)
+        return '/dashboard';
 
       return null;
     },
@@ -83,22 +84,16 @@ GoRouter createRouter(AuthProvider auth) {
             const ActivityReportScreen(),
       ),
       GoRoute(
+        path: '/all-records',
+        name: 'all_records',
+        builder: (BuildContext context, GoRouterState state) =>
+            const AllRecordsScreen(),
+      ),
+      GoRoute(
         path: '/vehicules',
         name: 'vehicules',
         builder: (BuildContext context, GoRouterState state) =>
             const VehiculesScreen(),
-      ),
-      GoRoute(
-        path: '/particuliers',
-        name: 'particuliers',
-        builder: (BuildContext context, GoRouterState state) =>
-            const ParticuliersScreen(),
-      ),
-      GoRoute(
-        path: '/entreprises',
-        name: 'entreprises',
-        builder: (BuildContext context, GoRouterState state) =>
-            const EntreprisesScreen(),
       ),
       GoRoute(
         path: '/contraventions',

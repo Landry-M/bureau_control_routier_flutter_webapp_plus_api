@@ -81,6 +81,10 @@ class _QuickActionsRow extends StatelessWidget {
                     context.push('/activity-report');
                   } else if (a.$2 == "Créer un dossier") {
                     context.push('/create-dossier');
+                  } else if (a.$2 == "Consulter tous les dossiers") {
+                    context.push('/all-records');
+                  } else if (a.$2 == "Rapports d'accidents") {
+                    context.push('/accidents');
                   }
                 },
                 borderRadius: BorderRadius.circular(12),

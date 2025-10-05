@@ -123,6 +123,38 @@ class ArrestationController extends BaseController {
     }
     
     /**
+     * Get arrestations by particulier
+     */
+    public function getByParticulier($particulierId) {
+        try {
+            $query = "SELECT a.*, 
+                     u.nom as agent_nom
+                     FROM {$this->table} a
+                     LEFT JOIN users u ON a.agent_id = u.id
+                     WHERE a.particulier_id = :particulier_id
+                     ORDER BY a.date_arrestation DESC, a.created_at DESC";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':particulier_id', $particulierId);
+            $stmt->execute();
+            
+            $arrestations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return [
+                'success' => true,
+                'data' => $arrestations,
+                'count' => count($arrestations)
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des arrestations: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
      * Get current detainees
      */
     public function getCurrentDetainees() {

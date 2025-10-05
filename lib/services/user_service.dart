@@ -58,4 +58,20 @@ class UserService {
     final details = (body['errors'] is Map<String, dynamic>) ? body['errors'] as Map<String, dynamic> : null;
     throw ApiException(statusCode: status, message: message, details: details ?? (body.isEmpty ? null : body));
   }
+
+  Future<Map<String, dynamic>> deleteUser(int id) async {
+    final resp = await client.postJson('/users/$id/delete', const {});
+    final status = resp.statusCode;
+    Map<String, dynamic> body = {};
+    try {
+      final decoded = jsonDecode(resp.body);
+      if (decoded is Map<String, dynamic>) body = decoded;
+    } catch (_) {}
+
+    if (status >= 200 && status < 300) return body;
+
+    final message = (body['message'] ?? body['error'] ?? "Erreur lors de la suppression de l'utilisateur").toString();
+    final details = (body['errors'] is Map<String, dynamic>) ? body['errors'] as Map<String, dynamic> : null;
+    throw ApiException(statusCode: status, message: message, details: details ?? (body.isEmpty ? null : body));
+  }
 }

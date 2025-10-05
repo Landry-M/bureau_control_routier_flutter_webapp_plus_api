@@ -457,7 +457,6 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
 
   Widget _buildContraventionSection() {
     return Card(
-      color: Colors.blue.shade50,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -708,6 +707,25 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
       initialDate: DateTime.now(),
       firstDate: DateTime(1900),
       lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: Theme.of(context).colorScheme.primary,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (date != null) {
       controller.text = date.toIso8601String().split('T')[0];
@@ -720,12 +738,50 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
       initialDate: DateTime.now(),
       firstDate: DateTime(1900),
       lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: Theme.of(context).colorScheme.primary,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     
     if (date != null) {
       final time = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.now(),
+        builder: (context, child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: Theme.of(context).colorScheme.copyWith(
+                primary: Theme.of(context).colorScheme.primary,
+                onPrimary: Colors.white,
+                surface: Colors.white,
+                onSurface: Colors.black,
+              ),
+              textButtonTheme: TextButtonThemeData(
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+            child: child!,
+          );
+        },
       );
       
       if (time != null) {

@@ -9,7 +9,7 @@ class VehiculeService {
 
   VehiculeService({ApiClient? apiClient})
       : _apiClient =
-            apiClient ?? ApiClient(baseUrl: 'http://localhost/api/routes/index.php');
+            apiClient ?? ApiClient(baseUrl: 'http://localhost:8000/api/routes/index.php');
   
 
   /// Crée un nouveau véhicule avec ou sans contravention
@@ -70,27 +70,27 @@ class VehiculeService {
     String? search,
   }) async {
     try {
-      final queryParams = <String, String>{
-        'page': page.toString(),
-        'limit': limit.toString(),
-      };
+      // Construire l'URL avec les paramètres de requête
+      final uri = Uri.parse(_apiClient.baseUrl).replace(
+        queryParameters: {
+          'route': '/vehicules',
+          'page': page.toString(),
+          'limit': limit.toString(),
+          if (search != null && search.isNotEmpty) 'search': search,
+        },
+      );
 
-      if (search != null && search.isNotEmpty) {
-        queryParams['search'] = search;
-      }
-
-      final queryString = queryParams.entries
-          .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
-          .join('&');
-
-      final response = await _apiClient.get('/vehicules?$queryString');
+      final response = await http.get(uri);
       final data = json.decode(response.body);
 
-      if (data['ok'] == true) {
+      // Gérer les deux formats de réponse API
+      if (data['ok'] == true || data['success'] == true) {
         return List<Map<String, dynamic>>.from(data['data'] ?? []);
       } else {
+        // Debug: afficher la réponse complète pour diagnostiquer
+        print('DEBUG VehiculeService - Réponse API: $data');
         throw Exception(
-            data['message'] ?? 'Erreur lors de la récupération des véhicules');
+            data['message'] ?? data['error'] ?? 'Erreur lors de la récupération des véhicules');
       }
     } catch (e) {
       throw Exception('Erreur lors de la récupération des véhicules: $e');

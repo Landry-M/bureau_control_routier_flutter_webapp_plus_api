@@ -35,7 +35,7 @@ class AuthController extends BaseController {
                 return $currentTime >= $start && $currentTime <= $end;
             };
 
-            // Case 1: associative by day keys
+            // Case 1: associative by day keys (numeric format: "1", "2", etc.)
             if (isset($data['1']) || isset($data['2']) || isset($data['3']) || isset($data['4']) || isset($data['5']) || isset($data['6']) || isset($data['7'])) {
                 $windows = $data[(string)$currentDay] ?? [];
                 if (!is_array($windows)) return true; // format inattendu => ne pas bloquer
@@ -43,6 +43,33 @@ class AuthController extends BaseController {
                     if ($inWindow($w['start'] ?? null, $w['end'] ?? null)) return true;
                 }
                 return false;
+            }
+            
+            // Case 1b: associative by day names (textual format: "Lundi", "Mardi", etc.)
+            $dayNames = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+            if (isset($data['Lundi']) || isset($data['Mardi']) || isset($data['Mercredi']) || isset($data['Jeudi']) || isset($data['Vendredi']) || isset($data['Samedi']) || isset($data['Dimanche'])) {
+                $todayName = $dayNames[$currentDay];
+                $todaySchedule = $data[$todayName] ?? null;
+                
+                if (!$todaySchedule || !is_array($todaySchedule)) {
+                    return true; // pas d'horaire défini pour aujourd'hui => ne pas bloquer
+                }
+                
+                // Vérifier si le jour est activé
+                $enabled = $todaySchedule['enabled'] ?? true;
+                if (!$enabled) {
+                    return false; // jour désactivé => bloquer
+                }
+                
+                // Vérifier l'heure si le jour est activé
+                $start = $todaySchedule['start'] ?? null;
+                $end = $todaySchedule['end'] ?? null;
+                
+                if ($start && $end) {
+                    return $inWindow($start, $end);
+                }
+                
+                return true; // pas d'heure définie => autoriser
             }
 
             // Case 2: array of entries with day/days

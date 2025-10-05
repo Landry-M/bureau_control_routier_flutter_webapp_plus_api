@@ -3,6 +3,8 @@ import '../services/notification_service.dart';
 import '../utils/responsive.dart';
 import '../widgets/vehicule_creation_modal.dart';
 import '../widgets/top_bar.dart';
+import '../widgets/create_entreprise_modal.dart';
+import '../widgets/create_particulier_modal.dart';
 
 class CreateDossierScreen extends StatelessWidget {
   const CreateDossierScreen({super.key});
@@ -81,23 +83,13 @@ class CreateDossierScreen extends StatelessWidget {
                       title: 'Enregistrer un particulier',
                       description:
                           'Créer un dossier pour un particulier sans véhicule.',
-                      onTap: () {
-                        NotificationService.info(
-                          context,
-                          'Fonctionnalité à implémenter',
-                        );
-                      },
+                      onTap: () => _showParticulierCreationModal(context),
                     ),
                     _DossierTile(
                       icon: Icons.business,
                       title: 'Enregistrer une entreprise',
                       description: 'Créer un dossier pour une entreprise.',
-                      onTap: () {
-                        NotificationService.info(
-                          context,
-                          'Fonctionnalité à implémenter',
-                        );
-                      },
+                      onTap: () => _showEntrepriseCreationModal(context),
                     ),
                     _DossierTile(
                       icon: Icons.description,
@@ -126,6 +118,22 @@ class CreateDossierScreen extends StatelessWidget {
       context: context,
       barrierDismissible: false,
       builder: (context) => const VehiculeCreationModal(),
+    );
+  }
+
+  void _showEntrepriseCreationModal(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const CreateEntrepriseModal(),
+    );
+  }
+
+  void _showParticulierCreationModal(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const CreateParticulierModal(),
     );
   }
 }

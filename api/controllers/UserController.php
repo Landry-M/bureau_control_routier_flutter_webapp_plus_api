@@ -129,7 +129,7 @@ class UserController extends BaseController {
                 $whereClause = " WHERE role = :role";
             }
             
-            $query = "SELECT id, matricule, username, telephone, role, statut, created_at 
+            $query = "SELECT id, matricule, username, telephone, role, statut, login_schedule, created_at 
                      FROM {$this->table}{$whereClause} 
                      ORDER BY username";
             
@@ -213,6 +213,43 @@ class UserController extends BaseController {
             return [
                 'success' => false,
                 'message' => 'Erreur lors du changement de statut: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Delete user
+     */
+    public function delete($id) {
+        try {
+            $query = "DELETE FROM {$this->table} WHERE id = :id";
+            $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+
+            if ($stmt->execute()) {
+                // Optional: log deletion
+                LogController::record(
+                    'system',
+                    'Suppression d\'agent',
+                    [ 'deleted_user_id' => $id ],
+                    $_SERVER['REMOTE_ADDR'] ?? null,
+                    $_SERVER['HTTP_USER_AGENT'] ?? null
+                );
+
+                return [
+                    'success' => true,
+                    'message' => "Agent supprimé avec succès"
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => "Erreur lors de la suppression"
+            ];
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erreur lors de la suppression: ' . $e->getMessage()
             ];
         }
     }

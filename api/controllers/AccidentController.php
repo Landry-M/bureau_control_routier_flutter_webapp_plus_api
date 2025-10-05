@@ -101,6 +101,67 @@ class AccidentController extends BaseController {
     }
     
     /**
+     * Get all accidents with pagination and search
+     */
+    public function getAll($limit = 20, $offset = 0) {
+        try {
+            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
+            $search = isset($_GET['search']) ? trim($_GET['search']) : '';
+            
+            $offset = ($page - 1) * $limit;
+            
+            // Base query
+            $whereClause = '';
+            $params = [];
+            
+            if (!empty($search)) {
+                $whereClause = "WHERE lieu LIKE :search OR gravite LIKE :search OR description LIKE :search";
+                $params[':search'] = "%$search%";
+            }
+            
+            // Count total records
+            $countQuery = "SELECT COUNT(*) as total FROM {$this->table} $whereClause";
+            $countStmt = $this->db->prepare($countQuery);
+            foreach ($params as $key => $value) {
+                $countStmt->bindValue($key, $value);
+            }
+            $countStmt->execute();
+            $total = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+            
+            // Get paginated data
+            $query = "SELECT * FROM {$this->table} $whereClause ORDER BY date_accident DESC, created_at DESC LIMIT :limit OFFSET :offset";
+            $stmt = $this->db->prepare($query);
+            
+            foreach ($params as $key => $value) {
+                $stmt->bindValue($key, $value);
+            }
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+            $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+            
+            $stmt->execute();
+            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return [
+                'success' => true,
+                'data' => $data,
+                'pagination' => [
+                    'page' => $page,
+                    'limit' => $limit,
+                    'total' => (int)$total,
+                    'pages' => ceil($total / $limit)
+                ]
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des accidents: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
      * Get accident with related data
      */
     public function getById($id) {

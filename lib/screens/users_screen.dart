@@ -1,13 +1,15 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../widgets/top_bar.dart';
-import '../utils/responsive.dart';
+import '../config/api_config.dart';
+import '../providers/auth_provider.dart';
 import '../services/api_client.dart';
 import '../services/user_service.dart';
 import '../services/notification_service.dart';
-import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+import '../utils/responsive.dart';
 import '../widgets/create_agent_modal.dart';
+import '../widgets/top_bar.dart';
 
 class UsersScreen extends StatefulWidget {
   const UsersScreen({super.key});
@@ -31,14 +33,54 @@ class _UsersScreenState extends State<UsersScreen> {
     _load();
   }
 
+  Future<void> _deleteUser(Map<String, dynamic> u) async {
+    final role = context.read<AuthProvider>().role;
+    final isSuper = role == 'superadmin';
+    if (!isSuper) {
+      NotificationService.error(context, 'Action réservée au superadmin');
+      return;
+    }
+    final id = int.tryParse((u['id'] ?? '').toString());
+    if (id == null) {
+      NotificationService.error(context, 'ID utilisateur invalide');
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmer la suppression'),
+        content: Text('Supprimer définitivement l\'agent ${(u['username'] ?? u['nom'] ?? '').toString()} ?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Annuler')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Supprimer'),
+          )
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final client = ApiClient(baseUrl: ApiConfig.baseUrl);
+      final svc = UserService(client);
+      await svc.deleteUser(id);
+      setState(() {
+        _all.removeWhere((e) => (e['id'] ?? '').toString() == id.toString());
+      });
+      NotificationService.success(context, 'Agent supprimé');
+    } catch (e) {
+      NotificationService.error(context, e.toString());
+    }
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final client =
-          ApiClient(baseUrl: 'http://localhost/api/routes/index.php');
+      final client = ApiClient(baseUrl: ApiConfig.baseUrl);
       final service = UserService(client);
       final result = await service.getUsers();
       final data = (result['data'] is List)
@@ -80,9 +122,41 @@ class _UsersScreenState extends State<UsersScreen> {
         final ctrlTelephone = TextEditingController(text: (u['telephone'] ?? '').toString());
         String statut = (u['statut'] ?? '').toString();
 
+        // Prepare schedules from existing login_schedule (JSON string or Map) or defaults
+        Map<String, Map<String, dynamic>> schedules = {
+          'Lundi': {'enabled': false, 'start': '08:00', 'end': '17:00'},
+          'Mardi': {'enabled': false, 'start': '08:00', 'end': '17:00'},
+          'Mercredi': {'enabled': false, 'start': '08:00', 'end': '17:00'},
+          'Jeudi': {'enabled': false, 'start': '08:00', 'end': '17:00'},
+          'Vendredi': {'enabled': false, 'start': '08:00', 'end': '17:00'},
+          'Samedi': {'enabled': false, 'start': '08:00', 'end': '17:00'},
+          'Dimanche': {'enabled': false, 'start': '08:00', 'end': '17:00'},
+        };
+
+        final rawSchedule = u['login_schedule'];
+        try {
+          dynamic decoded;
+          if (rawSchedule is String && rawSchedule.trim().isNotEmpty) {
+            decoded = jsonDecode(rawSchedule);
+          } else if (rawSchedule is Map<String, dynamic>) {
+            decoded = rawSchedule;
+          }
+          if (decoded is Map) {
+            decoded.forEach((k, v) {
+              if (schedules.containsKey(k) && v is Map) {
+                schedules[k] = {
+                  'enabled': (v['enabled'] ?? false) == true || (v['enabled'] == 'true'),
+                  'start': (v['start'] ?? schedules[k]!['start']).toString(),
+                  'end': (v['end'] ?? schedules[k]!['end']).toString(),
+                };
+              }
+            });
+          }
+        } catch (_) {}
+
         Future<void> submitUpdate() async {
           if (!isSuper) return;
-          final client = ApiClient(baseUrl: 'http://localhost/api/routes/index.php');
+          final client = ApiClient(baseUrl: ApiConfig.baseUrl);
           final svc = UserService(client);
           final id = int.tryParse((u['id'] ?? '').toString());
           if (id == null) {
@@ -95,6 +169,8 @@ class _UsersScreenState extends State<UsersScreen> {
             'role': ctrlRole.text,
             'telephone': ctrlTelephone.text,
             'statut': statut,
+            // Send schedules as login_schedule for backend to store
+            'login_schedule': schedules,
           };
           try {
             await svc.updateUser(id: id, data: payload);
@@ -172,6 +248,81 @@ class _UsersScreenState extends State<UsersScreen> {
                         onChanged: editing ? (v) => setLocal(() => statut = v ?? statut) : null,
                         decoration: const InputDecoration(labelText: 'Statut'),
                       ),
+                      const SizedBox(height: 16),
+                      Text('Plage autorisée de connexion', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Theme.of(context).colorScheme.outline),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surfaceVariant,
+                                borderRadius: const BorderRadius.only(topLeft: Radius.circular(8), topRight: Radius.circular(8)),
+                              ),
+                              child: Row(
+                                children: const [
+                                  SizedBox(width: 80, child: Text('Jour', style: TextStyle(fontWeight: FontWeight.w600))),
+                                  SizedBox(width: 80, child: Text('Autoriser', style: TextStyle(fontWeight: FontWeight.w600))),
+                                  Expanded(child: Text('Heure début', style: TextStyle(fontWeight: FontWeight.w600))),
+                                  Expanded(child: Text('Heure fin', style: TextStyle(fontWeight: FontWeight.w600))),
+                                ],
+                              ),
+                            ),
+                            ...schedules.entries.map((entry) {
+                              final day = entry.key;
+                              final cfg = entry.value;
+                              return Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  border: Border(bottom: BorderSide(color: Theme.of(context).colorScheme.outline.withOpacity(0.3))),
+                                ),
+                                child: Row(
+                                  children: [
+                                    SizedBox(width: 80, child: Text(day)),
+                                    SizedBox(
+                                      width: 80,
+                                      child: Switch(
+                                        value: cfg['enabled'] == true,
+                                        onChanged: editing ? (v) => setLocal(() => schedules[day]!['enabled'] = v) : null,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: (cfg['enabled'] == true)
+                                          ? _TimeField(
+                                              key: ValueKey('${day}_start_${cfg['start']}'),
+                                              labelHint: '08:00',
+                                              value: cfg['start'] as String,
+                                              onPick: editing
+                                                  ? (val) => setLocal(() => schedules[day]!['start'] = val)
+                                                  : null,
+                                            )
+                                          : const SizedBox.shrink(),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: (cfg['enabled'] == true)
+                                          ? _TimeField(
+                                              key: ValueKey('${day}_end_${cfg['end']}'),
+                                              labelHint: '17:00',
+                                              value: cfg['end'] as String,
+                                              onPick: editing
+                                                  ? (val) => setLocal(() => schedules[day]!['end'] = val)
+                                                  : null,
+                                            )
+                                          : const SizedBox.shrink(),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -227,7 +378,7 @@ class _UsersScreenState extends State<UsersScreen> {
       return;
     }
     try {
-      final client = ApiClient(baseUrl: 'http://localhost/api/routes/index.php');
+      final client = ApiClient(baseUrl: ApiConfig.baseUrl);
       final svc = UserService(client);
       await svc.updateUser(id: id, data: {'password': ctrlNew.text});
       NotificationService.success(context, 'Mot de passe mis à jour, première connexion requise');
@@ -245,7 +396,7 @@ class _UsersScreenState extends State<UsersScreen> {
     final current = (u['statut'] ?? 'actif').toString();
     final next = current == 'actif' ? 'inactif' : 'actif';
     try {
-      final client = ApiClient(baseUrl: 'http://localhost/api/routes/index.php');
+      final client = ApiClient(baseUrl: ApiConfig.baseUrl);
       final svc = UserService(client);
       await svc.updateUser(id: id, data: {'statut': next});
       setState(() {
@@ -346,6 +497,12 @@ class _UsersScreenState extends State<UsersScreen> {
                                 icon: Icon((u['statut'] ?? 'actif') == 'actif' ? Icons.lock : Icons.lock_open),
                                 onPressed: () => _toggleBlock(u),
                               ),
+                              if ((context.read<AuthProvider>().role) == 'superadmin')
+                                IconButton(
+                                  tooltip: 'Supprimer',
+                                  icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                  onPressed: () => _deleteUser(u),
+                                ),
                             ],
                           )),
                         ]);
@@ -396,6 +553,50 @@ class _UsersScreenState extends State<UsersScreen> {
         icon: const Icon(Icons.person_add),
         label: const Text('Nouvel agent'),
       ),
+    );
+  }
+}
+
+class _TimeField extends StatelessWidget {
+  final String labelHint;
+  final String value;
+  final void Function(String)? onPick;
+
+  const _TimeField({super.key, required this.labelHint, required this.value, this.onPick});
+
+  TimeOfDay _parse(String v) {
+    try {
+      final parts = v.split(':');
+      final h = int.parse(parts[0]);
+      final m = int.parse(parts[1]);
+      return TimeOfDay(hour: h, minute: m);
+    } catch (_) {
+      return const TimeOfDay(hour: 8, minute: 0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      key: key,
+      readOnly: true,
+      initialValue: value,
+      decoration: InputDecoration(
+        hintText: labelHint,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        suffixIcon: const Icon(Icons.access_time, size: 20),
+      ),
+      onTap: onPick == null
+          ? null
+          : () async {
+              final picked = await showTimePicker(context: context, initialTime: _parse(value));
+              if (picked != null) {
+                final hh = picked.hour.toString().padLeft(2, '0');
+                final mm = picked.minute.toString().padLeft(2, '0');
+                onPick?.call('$hh:$mm');
+              }
+            },
     );
   }
 }

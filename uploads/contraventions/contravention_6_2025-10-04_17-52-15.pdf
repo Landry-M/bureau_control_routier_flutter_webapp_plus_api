@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Contravention N° 6</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+        .section { margin-bottom: 15px; }
+        .label { font-weight: bold; }
+        .value { margin-left: 10px; }
+        .footer { margin-top: 30px; text-align: center; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>PROCÈS-VERBAL DE CONTRAVENTION</h1>
+        <h2>N° 6</h2>
+    </div>
+    
+    <div class="section">
+        <span class="label">Date d'infraction:</span>
+        <span class="value">2025-10-04 17:52:15</span>
+    </div>
+    
+    <div class="section">
+        <span class="label">Lieu:</span>
+        <span class="value"></span>
+    </div>
+    
+    <div class="section">
+        <span class="label">Type d'infraction:</span>
+        <span class="value">Test</span>
+    </div>
+    
+    <div class="section">
+        <span class="label">Description:</span>
+        <span class="value"></span>
+    </div>
+    
+    <div class="section">
+        <span class="label">Référence légale:</span>
+        <span class="value"></span>
+    </div>
+    
+    <div class="section">
+        <span class="label">Montant de l'amende:</span>
+        <span class="value">0 FC</span>
+    </div>
+    
+    <div class="section">
+        <span class="label">Statut de paiement:</span>
+        <span class="value">Non payée</span>
+    </div>
+    
+    <div class="footer">
+        <p>Document généré le 04/10/2025 à 17:52</p>
+        <p>Bureau Central de Roulage - République Démocratique du Congo</p>
+    </div>
+</body>
+</html>

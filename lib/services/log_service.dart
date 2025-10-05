@@ -12,6 +12,9 @@ class LogService {
     int offset = 0,
     String? username,
     String? action,
+    String? search,
+    String? dateFrom,
+    String? dateTo,
   }) async {
     // Construire les paramètres de requête
     final queryParams = <String, String>{
@@ -25,6 +28,18 @@ class LogService {
     
     if (action != null && action.isNotEmpty) {
       queryParams['action'] = action;
+    }
+    
+    if (search != null && search.isNotEmpty) {
+      queryParams['search'] = search;
+    }
+    
+    if (dateFrom != null && dateFrom.isNotEmpty) {
+      queryParams['date_from'] = dateFrom;
+    }
+    
+    if (dateTo != null && dateTo.isNotEmpty) {
+      queryParams['date_to'] = dateTo;
     }
     
     // Construire l'URL avec les paramètres

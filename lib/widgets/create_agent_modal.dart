@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../services/user_service.dart';
+import '../config/api_config.dart';
 import '../services/api_client.dart';
 import '../services/api_exception.dart';
+import '../services/user_service.dart';
 import '../services/notification_service.dart';
 
 class CreateAgentModal extends StatefulWidget {
@@ -66,7 +67,7 @@ class _CreateAgentModalState extends State<CreateAgentModal> {
       };
 
       // Créer le service utilisateur
-      final apiClient = ApiClient(baseUrl: 'http://localhost/api/routes/index.php');
+      final apiClient = ApiClient(baseUrl: ApiConfig.baseUrl);
       final userService = UserService(apiClient);
 
       // Envoyer à l'API

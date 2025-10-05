@@ -12,7 +12,7 @@ class VehiculeController extends BaseController {
     }
     
     /**
-     * Create new vehicule
+     * Create new vehicule with full details
      */
     public function create($data) {
         try {
@@ -47,28 +47,307 @@ class VehiculeController extends BaseController {
             ];
         }
     }
+
+    /**
+     * Check if a plaque already exists in the database
+     */
+    public function plaqueExists($plaque) {
+        try {
+            $query = "SELECT COUNT(*) as count FROM vehicule_plaque WHERE plaque = :plaque";
+            $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':plaque', $plaque);
+            $stmt->execute();
+            
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $result['count'] > 0;
+        } catch (Exception $e) {
+            // En cas d'erreur, on considère que la plaque existe pour éviter les doublons
+            return true;
+        }
+    }
+
+    /**
+     * Create vehicule with full details and optional contravention
+     */
+    public function createWithDetails($data, $vehicleImages = [], $contraventionImages = []) {
+        try {
+            // Helper function for safe data access
+            $f = function($k, $def = null) use ($data) { 
+                return isset($data[$k]) && $data[$k] !== '' ? $data[$k] : $def; 
+            };
+
+            // Vérifier l'unicité de la plaque
+            $plaque = $f('plaque');
+            if (!$plaque || trim($plaque) === '') {
+                return [
+                    'success' => false,
+                    'message' => 'Le numéro de plaque est requis'
+                ];
+            }
+
+            if ($this->plaqueExists($plaque)) {
+                return [
+                    'success' => false,
+                    'message' => 'Cette plaque d\'immatriculation existe déjà dans la base de données. Veuillez vérifier le numéro de plaque.'
+                ];
+            }
+
+            $this->db->beginTransaction();
+
+            // Insert into vehicule_plaque
+            $stmt = $this->db->prepare("INSERT INTO vehicule_plaque (
+                images, marque, modele, annee, couleur, numero_chassis, frontiere_entree, date_importation,
+                plaque, plaque_valide_le, plaque_expire_le,
+                nume_assurance, societe_assurance, date_valide_assurance, date_expire_assurance,
+                genre, `usage`, numero_declaration, num_moteur, origine, source, annee_fab, annee_circ, type_em,
+                en_circulation, created_at, updated_at
+            ) VALUES (
+                :images, :marque, :modele, :annee, :couleur, :numero_chassis, :frontiere_entree, :date_importation,
+                :plaque, :plaque_valide_le, :plaque_expire_le,
+                :nume_assurance, :societe_assurance, :date_valide_assurance, :date_expire_assurance,
+                :genre, :usage, :numero_declaration, :num_moteur, :origine, :source, :annee_fab, :annee_circ, :type_em,
+                :en_circulation, NOW(), NOW()
+            )");
+
+            $stmt->bindValue(':images', json_encode($vehicleImages));
+            $stmt->bindValue(':marque', $f('marque'));
+            $stmt->bindValue(':modele', $f('modele'));
+            $stmt->bindValue(':annee', $f('annee'));
+            $stmt->bindValue(':couleur', $f('couleur'));
+            $stmt->bindValue(':numero_chassis', $f('numero_chassis'));
+            $stmt->bindValue(':frontiere_entree', $f('frontiere_entree'));
+            $stmt->bindValue(':date_importation', $f('date_importation'));
+            $stmt->bindValue(':plaque', $f('plaque'));
+            $stmt->bindValue(':plaque_valide_le', $f('plaque_valide_le'));
+            $stmt->bindValue(':plaque_expire_le', $f('plaque_expire_le'));
+            $stmt->bindValue(':nume_assurance', $f('nume_assurance'));
+            $stmt->bindValue(':societe_assurance', $f('societe_assurance'));
+            $stmt->bindValue(':date_valide_assurance', $f('date_valide_assurance'));
+            $stmt->bindValue(':date_expire_assurance', $f('date_expire_assurance'));
+            $stmt->bindValue(':genre', $f('genre'));
+            $stmt->bindValue(':usage', $f('usage'));
+            $stmt->bindValue(':numero_declaration', $f('numero_declaration'));
+            $stmt->bindValue(':num_moteur', $f('num_moteur'));
+            $stmt->bindValue(':origine', $f('origine'));
+            $stmt->bindValue(':source', $f('source'));
+            $stmt->bindValue(':annee_fab', $f('annee_fab'));
+            $stmt->bindValue(':annee_circ', $f('annee_circ'));
+            $stmt->bindValue(':type_em', $f('type_em'));
+            $stmt->bindValue(':en_circulation', $f('en_circulation', '1'));
+
+            if (!$stmt->execute()) {
+                throw new Exception('Erreur lors de l\'insertion du véhicule');
+            }
+
+            $vehicleId = $this->db->lastInsertId();
+
+            // Automatically create assurance record if assurance fields are provided
+            $this->createAssuranceIfNeeded($vehicleId, $data);
+
+            // Optionally create contravention
+            $withCv = $f('with_contravention', '0');
+            if ($withCv === '1') {
+                require_once __DIR__ . '/ContraventionController.php';
+                $contraventionController = new ContraventionController();
+                
+                // Map contravention fields with cv_ prefix
+                $cvDate = $f('cv_date_infraction');
+                if (!$cvDate || trim((string)$cvDate) === '') { 
+                    $cvDate = date('Y-m-d H:i:s'); 
+                }
+                
+                $contraventionData = [
+                    'dossier_id' => $vehicleId,
+                    'type_dossier' => 'vehicule_plaque',
+                    'date_infraction' => $cvDate,
+                    'lieu' => $f('cv_lieu'),
+                    'type_infraction' => $f('cv_type_infraction'),
+                    'description' => $f('cv_description'),
+                    'reference_loi' => $f('cv_reference_loi'),
+                    'amende' => $f('cv_amende'),
+                    'payed' => $f('cv_payed', '0') === '1' ? 'oui' : 'non',
+                    'photos' => implode(',', $contraventionImages)
+                ];
+
+                $contraventionResult = $contraventionController->create($contraventionData);
+                if (!$contraventionResult['success']) {
+                    throw new Exception('Erreur lors de la création de la contravention: ' . $contraventionResult['message']);
+                }
+            }
+
+            $this->db->commit();
+
+            return [
+                'success' => true,
+                'message' => 'Véhicule créé avec succès' . ($withCv === '1' ? ' avec contravention' : ''),
+                'id' => $vehicleId
+            ];
+
+        } catch (Exception $e) {
+            $this->db->rollback();
+            return [
+                'success' => false,
+                'message' => 'Erreur lors de la création: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Create assurance record if assurance fields are provided
+     */
+    private function createAssuranceIfNeeded($vehicleId, $data) {
+        // Helper function for safe data access
+        $f = function($k, $def = null) use ($data) { 
+            return isset($data[$k]) && $data[$k] !== '' ? $data[$k] : $def; 
+        };
+
+        // Check if any assurance field is provided
+        $hasAssuranceData = false;
+        $assuranceFields = [
+            'societe_assurance', 'nume_assurance', 'date_valide_assurance', 
+            'date_expire_assurance', 'montant_prime', 'type_couverture'
+        ];
+
+        foreach ($assuranceFields as $field) {
+            if ($f($field) !== null) {
+                $hasAssuranceData = true;
+                break;
+            }
+        }
+
+        if (!$hasAssuranceData) {
+            return; // No assurance data provided
+        }
+
+        try {
+            // Use AssuranceController for better organization
+            require_once __DIR__ . '/AssuranceController.php';
+            $assuranceController = new AssuranceController();
+            
+            $assuranceData = [
+                'vehicule_plaque_id' => $vehicleId,
+                'societe_assurance' => $f('societe_assurance'),
+                'nume_assurance' => $f('nume_assurance'),
+                'date_valide_assurance' => $f('date_valide_assurance'),
+                'date_expire_assurance' => $f('date_expire_assurance'),
+                'montant_prime' => $f('montant_prime'),
+                'type_couverture' => $f('type_couverture'),
+                'notes' => $f('notes_assurance')
+            ];
+
+            $assuranceResult = $assuranceController->create($assuranceData);
+            if (!$assuranceResult['success']) {
+                throw new Exception('Erreur lors de la création de l\'assurance: ' . $assuranceResult['message']);
+            }
+
+        } catch (Exception $e) {
+            // Log the error but don't fail the vehicle creation
+            error_log("Erreur création assurance: " . $e->getMessage());
+        }
+    }
     
     /**
-     * Update vehicule
+     * Update vehicule with all fields
      */
-    public function update($id, $data) {
+    public function update($id, $data, $vehicleImages = []) {
         try {
-            $query = "UPDATE {$this->table} SET 
-                     plaque = :plaque, 
-                     marque = :marque, 
-                     modele = :modele, 
-                     couleur = :couleur, 
-                     proprietaire_id = :proprietaire_id,
+            // Helper function for safe data access
+            $f = function($k, $def = null) use ($data) { 
+                return isset($data[$k]) && $data[$k] !== '' ? $data[$k] : $def; 
+            };
+
+            // Vérifier que le véhicule existe
+            $checkQuery = "SELECT id FROM vehicule_plaque WHERE id = :id";
+            $checkStmt = $this->db->prepare($checkQuery);
+            $checkStmt->bindParam(':id', $id);
+            $checkStmt->execute();
+            
+            if ($checkStmt->rowCount() === 0) {
+                return [
+                    'success' => false,
+                    'message' => 'Véhicule non trouvé'
+                ];
+            }
+
+            // Vérifier l'unicité de la plaque si elle est modifiée
+            $plaque = $f('plaque');
+            if ($plaque && trim($plaque) !== '') {
+                $plaqueCheckQuery = "SELECT COUNT(*) as count FROM vehicule_plaque WHERE plaque = :plaque AND id != :id";
+                $plaqueCheckStmt = $this->db->prepare($plaqueCheckQuery);
+                $plaqueCheckStmt->bindParam(':plaque', $plaque);
+                $plaqueCheckStmt->bindParam(':id', $id);
+                $plaqueCheckStmt->execute();
+                
+                $result = $plaqueCheckStmt->fetch(PDO::FETCH_ASSOC);
+                if ($result['count'] > 0) {
+                    return [
+                        'success' => false,
+                        'message' => 'Cette plaque d\'immatriculation existe déjà pour un autre véhicule'
+                    ];
+                }
+            }
+
+            // Mise à jour complète avec tous les champs
+            $query = "UPDATE vehicule_plaque SET 
+                     images = :images,
+                     marque = :marque,
+                     annee = :annee,
+                     couleur = :couleur,
+                     modele = :modele,
+                     numero_chassis = :numero_chassis,
+                     frontiere_entree = :frontiere_entree,
+                     date_importation = :date_importation,
+                     plaque = :plaque,
+                     plaque_valide_le = :plaque_valide_le,
+                     plaque_expire_le = :plaque_expire_le,
+                     en_circulation = :en_circulation,
+                     nume_assurance = :nume_assurance,
+                     date_expire_assurance = :date_expire_assurance,
+                     date_valide_assurance = :date_valide_assurance,
+                     societe_assurance = :societe_assurance,
+                     genre = :genre,
+                     `usage` = :usage,
+                     numero_declaration = :numero_declaration,
+                     num_moteur = :num_moteur,
+                     origine = :origine,
+                     source = :source,
+                     annee_fab = :annee_fab,
+                     annee_circ = :annee_circ,
+                     type_em = :type_em,
                      updated_at = NOW()
                      WHERE id = :id";
             
             $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':id', $id);
-            $stmt->bindParam(':plaque', $data['plaque']);
-            $stmt->bindParam(':marque', $data['marque']);
-            $stmt->bindParam(':modele', $data['modele']);
-            $stmt->bindParam(':couleur', $data['couleur']);
-            $stmt->bindParam(':proprietaire_id', $data['proprietaire_id']);
+            
+            // Gestion des images
+            $images = !empty($vehicleImages) ? json_encode($vehicleImages) : $f('images', '[]');
+            
+            $stmt->bindValue(':id', $id);
+            $stmt->bindValue(':images', $images);
+            $stmt->bindValue(':marque', $f('marque'));
+            $stmt->bindValue(':annee', $f('annee'));
+            $stmt->bindValue(':couleur', $f('couleur'));
+            $stmt->bindValue(':modele', $f('modele'));
+            $stmt->bindValue(':numero_chassis', $f('numero_chassis'));
+            $stmt->bindValue(':frontiere_entree', $f('frontiere_entree'));
+            $stmt->bindValue(':date_importation', $f('date_importation'));
+            $stmt->bindValue(':plaque', $f('plaque'));
+            $stmt->bindValue(':plaque_valide_le', $f('plaque_valide_le'));
+            $stmt->bindValue(':plaque_expire_le', $f('plaque_expire_le'));
+            $stmt->bindValue(':en_circulation', $f('en_circulation', '1'));
+            $stmt->bindValue(':nume_assurance', $f('nume_assurance'));
+            $stmt->bindValue(':date_expire_assurance', $f('date_expire_assurance'));
+            $stmt->bindValue(':date_valide_assurance', $f('date_valide_assurance'));
+            $stmt->bindValue(':societe_assurance', $f('societe_assurance'));
+            $stmt->bindValue(':genre', $f('genre'));
+            $stmt->bindValue(':usage', $f('usage'));
+            $stmt->bindValue(':numero_declaration', $f('numero_declaration'));
+            $stmt->bindValue(':num_moteur', $f('num_moteur'));
+            $stmt->bindValue(':origine', $f('origine'));
+            $stmt->bindValue(':source', $f('source'));
+            $stmt->bindValue(':annee_fab', $f('annee_fab'));
+            $stmt->bindValue(':annee_circ', $f('annee_circ'));
+            $stmt->bindValue(':type_em', $f('type_em'));
             
             if ($stmt->execute()) {
                 return [
@@ -178,6 +457,117 @@ class VehiculeController extends BaseController {
             return [
                 'success' => false,
                 'message' => 'Erreur lors de la remise en circulation: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Retirer la plaque d'un véhicule
+     */
+    public function retirerPlaque($id) {
+        try {
+            // Vérifier que le véhicule existe
+            $checkQuery = "SELECT id, plaque FROM vehicule_plaque WHERE id = :id";
+            $checkStmt = $this->db->prepare($checkQuery);
+            $checkStmt->bindParam(':id', $id);
+            $checkStmt->execute();
+            
+            if ($checkStmt->rowCount() === 0) {
+                return [
+                    'success' => false,
+                    'message' => 'Véhicule non trouvé'
+                ];
+            }
+            
+            $vehicule = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            $anciennePlaque = $vehicule['plaque'];
+            
+            // Mettre à jour les champs plaque, plaque_valide_le et plaque_expire_le à NULL
+            $query = "UPDATE vehicule_plaque SET 
+                     plaque = NULL, 
+                     plaque_valide_le = NULL, 
+                     plaque_expire_le = NULL,
+                     updated_at = NOW()
+                     WHERE id = :id";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':id', $id);
+            
+            if ($stmt->execute()) {
+                return [
+                    'success' => true,
+                    'message' => 'Plaque retirée avec succès',
+                    'ancienne_plaque' => $anciennePlaque
+                ];
+            }
+            
+            return [
+                'success' => false,
+                'message' => 'Erreur lors du retrait de la plaque'
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erreur lors du retrait de la plaque: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Retirer un véhicule de la circulation
+     */
+    public function retirerDeCirculation($id) {
+        try {
+            // Vérifier que le véhicule existe
+            $checkQuery = "SELECT id, plaque, en_circulation FROM vehicule_plaque WHERE id = :id";
+            $checkStmt = $this->db->prepare($checkQuery);
+            $checkStmt->bindParam(':id', $id);
+            $checkStmt->execute();
+            
+            if ($checkStmt->rowCount() === 0) {
+                return [
+                    'success' => false,
+                    'message' => 'Véhicule non trouvé'
+                ];
+            }
+            
+            $vehicule = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Vérifier si le véhicule est déjà retiré de la circulation
+            if ($vehicule['en_circulation'] == '0') {
+                return [
+                    'success' => false,
+                    'message' => 'Ce véhicule est déjà retiré de la circulation'
+                ];
+            }
+            
+            // Mettre à jour le champ en_circulation à 0
+            $query = "UPDATE vehicule_plaque SET 
+                     en_circulation = '0',
+                     updated_at = NOW()
+                     WHERE id = :id";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':id', $id);
+            
+            if ($stmt->execute()) {
+                return [
+                    'success' => true,
+                    'message' => 'Véhicule retiré de la circulation avec succès',
+                    'plaque' => $vehicule['plaque']
+                ];
+            }
+            
+            return [
+                'success' => false,
+                'message' => 'Erreur lors du retrait du véhicule de la circulation'
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erreur lors du retrait du véhicule: ' . $e->getMessage()
             ];
         }
     }

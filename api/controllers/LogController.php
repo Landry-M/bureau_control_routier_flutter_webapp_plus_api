@@ -40,13 +40,13 @@ class LogController extends BaseController {
     }
     
     /**
-     * Get all logs with pagination
+     * Get all logs with pagination and search
      */
-    public function getLogs($limit = 100, $offset = 0, $username = null, $action = null) {
+    public function getLogs($limit = 100, $offset = 0, $username = null, $action = null, $search = null, $dateFrom = null, $dateTo = null) {
         try {
             // Debug
             error_log("LogController::getLogs - Table: {$this->table}");
-            error_log("LogController::getLogs - Params: limit=$limit, offset=$offset, username=$username, action=$action");
+            error_log("LogController::getLogs - Params: limit=$limit, offset=$offset, username=$username, action=$action, search=$search");
             
             $whereClause = '';
             $params = [];
@@ -59,6 +59,23 @@ class LogController extends BaseController {
             if ($action) {
                 $whereClause .= ($whereClause ? " AND" : " WHERE") . " action LIKE :action";
                 $params[':action'] = "%{$action}%";
+            }
+            
+            if ($search) {
+                $whereClause .= ($whereClause ? " AND" : " WHERE") . " (username LIKE :search OR action LIKE :search2 OR details_operation LIKE :search3)";
+                $params[':search'] = "%{$search}%";
+                $params[':search2'] = "%{$search}%";
+                $params[':search3'] = "%{$search}%";
+            }
+            
+            if ($dateFrom) {
+                $whereClause .= ($whereClause ? " AND" : " WHERE") . " created_at >= :date_from";
+                $params[':date_from'] = $dateFrom;
+            }
+            
+            if ($dateTo) {
+                $whereClause .= ($whereClause ? " AND" : " WHERE") . " created_at <= :date_to";
+                $params[':date_to'] = $dateTo . ' 23:59:59';
             }
             
             // Fetch all columns from the table to expose all available information

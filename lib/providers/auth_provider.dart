@@ -1,19 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/api_exception.dart';
 
 class AuthProvider extends ChangeNotifier {
-  // Configure your API base URL here (dev)
-  static const String _defaultApiBase =
-      'http://localhost/api/routes/index.php';
-
   final AuthService _authService;
   AuthProvider({AuthService? authService})
       : _authService =
-            authService ?? AuthService(ApiClient(baseUrl: _defaultApiBase));
+            authService ?? AuthService(ApiClient(baseUrl: ApiConfig.baseUrl));
 
   String? _token;
   String _role = 'guest'; // guest, admin, superadmin
@@ -81,19 +78,25 @@ class AuthProvider extends ChangeNotifier {
       _loading = false;
       if (e is ApiException) {
         // Prefer "message", then aggregate validation errors if present
+        String baseMsg = e.message;
+        String agg = '';
         if (e.details != null && e.details!['errors'] is Map<String, dynamic>) {
           final errs = e.details!['errors'] as Map<String, dynamic>;
-          final messages = errs.entries
-              .expand((e) => (e.value is List)
-                  ? List<String>.from(e.value)
-                  : [e.value.toString()])
+          agg = errs.entries
+              .expand((en) => (en.value is List)
+                  ? List<String>.from(en.value)
+                  : [en.value.toString()])
               .join('\n');
-          _error = messages.isNotEmpty ? messages : e.message;
-        } else {
-          _error = e.message;
         }
+        final composed = [agg.isNotEmpty ? agg : null, baseMsg]
+            .where((s) => s != null && s.trim().isNotEmpty)
+            .map((s) => s?.trim() ?? '')
+            .join('\n');
+        _error = composed.isNotEmpty
+            ? '$composed (code ${e.statusCode})'
+            : 'Erreur de connexion (code ${e.statusCode})';
       } else {
-        _error = e.toString();
+        _error = 'Erreur de connexion: ${e.toString()}';
       }
       notifyListeners();
       return false;

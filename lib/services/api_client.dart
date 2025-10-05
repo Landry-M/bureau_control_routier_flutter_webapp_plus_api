@@ -16,10 +16,17 @@ class ApiClient {
     if (_isPhpEntry) {
       final base = Uri.parse(baseUrl);
       final existing = Map<String, String>.from(base.queryParameters);
+      
+      // Séparer le path des paramètres de requête
+      final uri = Uri.parse('http://dummy.com$normalized');
+      final routePath = uri.path;
+      final queryParams = Map<String, String>.from(uri.queryParameters);
+      
       return base.replace(
         queryParameters: {
           ...existing,
-          'route': normalized,
+          'route': routePath,
+          ...queryParams, // Ajouter les paramètres de requête séparément
         },
       );
     }
