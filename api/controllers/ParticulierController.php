@@ -99,6 +99,141 @@ class ParticulierController extends BaseController {
     }
     
     /**
+     * Update particulier with complete data including photos
+     */
+    public function updateComplete($id, $data, $files = []) {
+        try {
+            // Vérifier que le particulier existe
+            $checkQuery = "SELECT id FROM {$this->table} WHERE id = :id";
+            $checkStmt = $this->db->prepare($checkQuery);
+            $checkStmt->bindParam(':id', $id);
+            $checkStmt->execute();
+            
+            if ($checkStmt->rowCount() === 0) {
+                return [
+                    'success' => false,
+                    'message' => 'Particulier non trouvé'
+                ];
+            }
+
+            // Gérer l'upload des photos
+            $photoFields = [];
+            $uploadDir = __DIR__ . '/../uploads/particuliers/';
+            
+            // Créer le dossier s'il n'existe pas
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+
+            foreach (['photo', 'permis_recto', 'permis_verso'] as $photoType) {
+                if (isset($files[$photoType]) && $files[$photoType]['error'] === UPLOAD_ERR_OK) {
+                    $file = $files[$photoType];
+                    $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+                    
+                    // Vérifier l'extension
+                    if (!in_array($extension, ['jpg', 'jpeg', 'png', 'gif'])) {
+                        return [
+                            'success' => false,
+                            'message' => "Format d'image non supporté pour {$photoType}. Utilisez JPG, PNG ou GIF."
+                        ];
+                    }
+                    
+                    // Générer un nom unique
+                    $fileName = $photoType . '_' . $id . '_' . time() . '.' . $extension;
+                    $filePath = $uploadDir . $fileName;
+                    
+                    // Déplacer le fichier
+                    if (move_uploaded_file($file['tmp_name'], $filePath)) {
+                        $photoFields[$photoType] = '/api/uploads/particuliers/' . $fileName;
+                    } else {
+                        return [
+                            'success' => false,
+                            'message' => "Erreur lors de l'upload de {$photoType}"
+                        ];
+                    }
+                }
+            }
+
+            // Construire la requête de mise à jour
+            $updateFields = [
+                'nom = :nom',
+                'prenom = :prenom',
+                'sexe = :sexe',
+                'gsm = :gsm',
+                'adresse = :adresse',
+                'numero_permis = :numero_permis',
+                'categorie_permis = :categorie_permis',
+                'observations = :observations',
+                'updated_at = NOW()'
+            ];
+
+            // Ajouter les dates si elles sont fournies
+            if (!empty($data['date_naissance'])) {
+                $updateFields[] = 'date_naissance = :date_naissance';
+            }
+            if (!empty($data['permis_date_emission'])) {
+                $updateFields[] = 'permis_date_emission = :permis_date_emission';
+            }
+            if (!empty($data['permis_date_expiration'])) {
+                $updateFields[] = 'permis_date_expiration = :permis_date_expiration';
+            }
+
+            // Ajouter les photos si elles ont été uploadées
+            foreach ($photoFields as $field => $path) {
+                $updateFields[] = "{$field} = :{$field}";
+            }
+
+            $query = "UPDATE {$this->table} SET " . implode(', ', $updateFields) . " WHERE id = :id";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':id', $id);
+            $stmt->bindParam(':nom', $data['nom']);
+            $stmt->bindParam(':prenom', $data['prenom']);
+            $stmt->bindParam(':sexe', $data['sexe']);
+            $stmt->bindParam(':gsm', $data['gsm']);
+            $stmt->bindParam(':adresse', $data['adresse']);
+            $stmt->bindParam(':numero_permis', $data['numero_permis']);
+            $stmt->bindParam(':categorie_permis', $data['categorie_permis']);
+            $stmt->bindParam(':observations', $data['observations']);
+
+            // Bind des dates si elles sont fournies
+            if (!empty($data['date_naissance'])) {
+                $stmt->bindParam(':date_naissance', $data['date_naissance']);
+            }
+            if (!empty($data['permis_date_emission'])) {
+                $stmt->bindParam(':permis_date_emission', $data['permis_date_emission']);
+            }
+            if (!empty($data['permis_date_expiration'])) {
+                $stmt->bindParam(':permis_date_expiration', $data['permis_date_expiration']);
+            }
+
+            // Bind des photos
+            foreach ($photoFields as $field => $path) {
+                $stmt->bindParam(":{$field}", $path);
+            }
+            
+            if ($stmt->execute()) {
+                return [
+                    'success' => true,
+                    'message' => 'Particulier modifié avec succès',
+                    'photos_uploaded' => array_keys($photoFields)
+                ];
+            }
+            
+            return [
+                'success' => false,
+                'message' => 'Erreur lors de la modification'
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erreur lors de la modification: ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
      * Search particulier by carte identite
      */
     public function getByCarteIdentite($numero) {
@@ -128,6 +263,35 @@ class ParticulierController extends BaseController {
     }
     
     /**
+     * Get particulier by ID
+     */
+    public function getById($id) {
+        try {
+            $query = "SELECT * FROM {$this->table} WHERE id = :id LIMIT 1";
+            $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmt->execute();
+            
+            if ($stmt->rowCount() > 0) {
+                return [
+                    'success' => true,
+                    'data' => $stmt->fetch(PDO::FETCH_ASSOC)
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Particulier non trouvé'
+                ];
+            }
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erreur lors de la récupération du particulier: ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
      * Get all particuliers with pagination
      */
     public function getAll($page = 1, $limit = 20, $search = '') {
@@ -138,7 +302,7 @@ class ParticulierController extends BaseController {
             $whereClause = '';
             $params = [];
             if (!empty($search)) {
-                $whereClause = 'WHERE nom LIKE :search OR telephone LIKE :search OR numero_permis LIKE :search';
+                $whereClause = 'WHERE nom LIKE :search OR gsm LIKE :search OR numero_permis LIKE :search';
                 $params[':search'] = '%' . $search . '%';
             }
             
@@ -211,6 +375,31 @@ class ParticulierController extends BaseController {
     }
 
     /**
+     * Check if a particulier with the given name already exists
+     */
+    public function nomExists($nom) {
+        try {
+            if (empty($nom) || trim($nom) === '') {
+                return false;
+            }
+
+            $query = "SELECT COUNT(*) as count FROM {$this->table} WHERE LOWER(TRIM(nom)) = LOWER(TRIM(:nom))";
+            $stmt = $this->db->prepare($query);
+            $nomTrimmed = trim($nom);
+            $stmt->bindParam(':nom', $nomTrimmed);
+            $stmt->execute();
+            
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return ($result['count'] ?? 0) > 0;
+            
+        } catch (Exception $e) {
+            // En cas d'erreur SQL, considérer que le nom existe pour éviter les doublons
+            error_log('Erreur lors de la vérification du nom particulier: ' . $e->getMessage());
+            return true;
+        }
+    }
+
+    /**
      * Create particulier with full details and optional contravention
      */
     public function createWithDetails($data, $photos = [], $contraventionPhotos = []) {
@@ -221,6 +410,23 @@ class ParticulierController extends BaseController {
             $f = function($k, $def = null) use ($data) { 
                 return isset($data[$k]) && $data[$k] !== '' ? $data[$k] : $def; 
             };
+
+            // Vérifier que le nom n'est pas vide
+            $nom = $f('nom');
+            if (!$nom || trim($nom) === '') {
+                return [
+                    'success' => false,
+                    'message' => 'Le nom complet est requis'
+                ];
+            }
+
+            // Vérifier l'unicité du nom
+            if ($this->nomExists($nom)) {
+                return [
+                    'success' => false,
+                    'message' => 'Un particulier avec ce nom existe déjà dans la base de données. Veuillez vérifier le nom.'
+                ];
+            }
 
             // Insert particulier with full details
             $stmt = $this->db->prepare("

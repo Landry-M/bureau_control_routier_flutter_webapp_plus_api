@@ -112,6 +112,26 @@ class VehiculeService {
     return <Map<String, dynamic>>[];
   }
 
+  /// Recherche spécifique par plaque dans la table vehicule_plaque
+  Future<List<Map<String, dynamic>>> searchByPlaque(String plaque) async {
+    try {
+      final response = await _apiClient.get('/vehicules?search=${Uri.encodeComponent(plaque)}');
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        
+        if (data['success'] == true || data['ok'] == true) {
+          final items = data['data'] ?? data['items'] ?? [];
+          return List<Map<String, dynamic>>.from(items);
+        }
+      }
+      
+      return [];
+    } catch (e) {
+      throw Exception('Erreur lors de la recherche par plaque: $e');
+    }
+  }
+
   /// Recherche une plaque d'immatriculation (locale puis DGI)
   Future<Map<String, dynamic>?> searchPlaque(String plate) async {
     try {

@@ -590,7 +590,33 @@ class _TimeField extends StatelessWidget {
       onTap: onPick == null
           ? null
           : () async {
-              final picked = await showTimePicker(context: context, initialTime: _parse(value));
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: _parse(value),
+                builder: (context, child) {
+                  return Theme(
+                    data: Theme.of(context).copyWith(
+                      colorScheme: Theme.of(context).colorScheme.copyWith(
+                        primary: Theme.of(context).colorScheme.primary,
+                        onPrimary: Colors.white,
+                        surface: Theme.of(context).colorScheme.surface,
+                        onSurface: Colors.white,
+                      ),
+                      textButtonTheme: TextButtonThemeData(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      timePickerTheme: TimePickerThemeData(
+                        dialTextColor: Colors.white,
+                        hourMinuteTextColor: Colors.white,
+                      ),
+                    ),
+                    child: child!,
+                  );
+                },
+              );
               if (picked != null) {
                 final hh = picked.hour.toString().padLeft(2, '0');
                 final mm = picked.minute.toString().padLeft(2, '0');

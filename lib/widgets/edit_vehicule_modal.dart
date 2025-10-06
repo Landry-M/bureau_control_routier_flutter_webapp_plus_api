@@ -1,11 +1,17 @@
-import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'package:toastification/toastification.dart';
+import 'package:file_picker/file_picker.dart';
+
 import '../config/api_config.dart';
+import '../utils/image_utils.dart';
+import '../utils/date_time_picker_theme.dart';
 
 class EditVehiculeModal extends StatefulWidget {
   final Map<String, dynamic> vehicule;
@@ -145,25 +151,7 @@ class _EditVehiculeModalState extends State<EditVehiculeModal> {
       initialDate: DateTime.now(),
       firstDate: DateTime(1900),
       lastDate: DateTime(2100),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: Theme.of(context).colorScheme.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: buildThemedPicker,
     );
     if (picked != null) {
       setState(() {
@@ -178,50 +166,14 @@ class _EditVehiculeModalState extends State<EditVehiculeModal> {
       initialDate: DateTime.now(),
       firstDate: DateTime(1900),
       lastDate: DateTime(2100),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: Theme.of(context).colorScheme.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: buildThemedPicker,
     );
     
     if (pickedDate != null) {
       final TimeOfDay? pickedTime = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.now(),
-        builder: (context, child) {
-          return Theme(
-            data: Theme.of(context).copyWith(
-              colorScheme: Theme.of(context).colorScheme.copyWith(
-                primary: Theme.of(context).colorScheme.primary,
-                onPrimary: Colors.white,
-                surface: Colors.white,
-                onSurface: Colors.black,
-              ),
-              textButtonTheme: TextButtonThemeData(
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-            child: child!,
-          );
-        },
+        builder: buildThemedPicker,
       );
       
       if (pickedTime != null) {
@@ -540,10 +492,7 @@ class _EditVehiculeModalState extends State<EditVehiculeModal> {
                                               )
                                             : const Icon(Icons.error))
                                         : (file.path != null
-                                            ? Image.file(
-                                                File(file.path!),
-                                                fit: BoxFit.cover,
-                                              )
+                                            ? Image.file(File(file.path!), fit: BoxFit.cover)
                                             : const Icon(Icons.error)),
                                   ),
                                 )).toList(),

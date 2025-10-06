@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/alert_provider.dart';
 import '../utils/responsive.dart';
 import '../widgets/create_agent_modal.dart';
 import '../services/notification_service.dart';
@@ -202,11 +203,22 @@ class _TopBarState extends State<TopBar> {
           ),
         );
 
-    final alertsButton = IconButton(
-      tooltip: 'Alertes',
-      icon: const Icon(Icons.notifications_outlined),
-      color: cs.onSurface,
-      onPressed: () => context.push('/alerts'),
+    final alertsButton = Consumer<AlertProvider>(
+      builder: (context, alertProvider, child) {
+        final alertCount = alertProvider.totalAlerts;
+        return Badge(
+          label: Text('$alertCount'),
+          isLabelVisible: alertCount > 0,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          child: IconButton(
+            tooltip: 'Alertes',
+            icon: const Icon(Icons.notifications_outlined),
+            color: cs.onSurface,
+            onPressed: () => context.push('/alerts'),
+          ),
+        );
+      },
     );
 
     if (isMobile) {

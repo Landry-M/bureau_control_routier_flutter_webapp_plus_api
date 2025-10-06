@@ -14,6 +14,9 @@ import 'providers/avis_provider.dart';
 import 'providers/accident_provider.dart';
 import 'providers/arrestation_provider.dart';
 import 'providers/search_provider.dart';
+import 'providers/conducteur_provider.dart';
+import 'providers/global_search_provider.dart';
+import 'providers/alert_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,6 +45,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AccidentProvider()),
         ChangeNotifierProvider(create: (_) => ArrestationProvider()),
         ChangeNotifierProvider(create: (_) => SearchProvider()),
+        ChangeNotifierProvider(create: (_) => ConducteurProvider()),
+        ChangeNotifierProvider(create: (_) => GlobalSearchProvider()),
+        ChangeNotifierProvider(create: (_) => AlertProvider()),
       ],
       child: MaterialApp.router(
         title: 'Bureau de Contrôle Routier',

@@ -373,76 +373,6 @@ class _ActivityReportScreenState extends State<ActivityReportScreen> {
     );
   }
 
-  Widget _buildStatsCards() {
-    final theme = Theme.of(context);
-
-    // Calculer les statistiques
-    final totalLogs = _displayedLogs.length;
-    final successfulLogins = _displayedLogs
-        .where((log) => (log['action'] ?? '')
-            .toString()
-            .toLowerCase()
-            .contains('connexion réussie'))
-        .length;
-    final failedLogins = _displayedLogs
-        .where((log) => (log['action'] ?? '')
-            .toString()
-            .toLowerCase()
-            .contains('connexion échouée'))
-        .length;
-    final creations = _displayedLogs
-        .where((log) =>
-            (log['action'] ?? '').toString().toLowerCase().contains('création'))
-        .length;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildStatCard(
-              'Total des activités',
-              totalLogs.toString(),
-              Icons.analytics,
-              Colors.blue,
-              theme,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              'Connexions réussies',
-              successfulLogins.toString(),
-              Icons.login,
-              Colors.green,
-              theme,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              'Connexions échouées',
-              failedLogins.toString(),
-              Icons.error_outline,
-              Colors.red,
-              theme,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              'Créations',
-              creations.toString(),
-              Icons.add_circle_outline,
-              Colors.orange,
-              theme,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildStatCard(
       String title, String value, IconData icon, Color color, ThemeData theme) {
     return Card(
@@ -538,21 +468,6 @@ class _ActivityReportScreenState extends State<ActivityReportScreen> {
                       ),
                     ),
                     const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        '${_displayedLogs.length} résultat(s)${_hasMoreData ? '+' : ''}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onPrimaryContainer,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -876,8 +791,6 @@ class _ActivityReportScreenState extends State<ActivityReportScreen> {
                               child: Column(
                                 children: [
                                   _buildFiltersCard(),
-                                  const SizedBox(height: 16),
-                                  _buildStatsCards(),
                                   const SizedBox(height: 16),
                                   _buildDataTable(),
                                   const SizedBox(height: 20),

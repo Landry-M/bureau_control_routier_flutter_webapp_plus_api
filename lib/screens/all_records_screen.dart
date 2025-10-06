@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:toastification/toastification.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
 import '../providers/vehicule_provider.dart';
 import '../providers/particulier_provider.dart';
 import '../providers/entreprise_provider.dart';
@@ -13,13 +12,22 @@ import '../config/api_config.dart';
 import '../services/api_client.dart';
 import '../widgets/top_bar.dart';
 import '../widgets/assign_contravention_entreprise_modal.dart';
+import '../widgets/assign_contravention_particulier_modal.dart';
+import '../widgets/consigner_arrestation_modal.dart';
+import '../widgets/emettre_avis_recherche_modal.dart';
+import '../widgets/generer_permis_temporaire_modal.dart';
+import '../widgets/plaque_temporaire_modal.dart';
 import '../widgets/edit_entreprise_modal.dart';
+import '../widgets/edit_particulier_modal.dart';
 import '../widgets/entreprise_details_modal.dart';
 import '../widgets/particulier_details_modal.dart';
 import '../widgets/particulier_actions_modal.dart';
 import '../widgets/vehicule_actions_modal.dart';
 import '../widgets/edit_vehicule_modal.dart';
 import '../widgets/vehicule_details_modal.dart';
+import '../widgets/retirer_plaque_modal.dart';
+import '../widgets/transfert_proprietaire_modal.dart';
+import '../widgets/recherche_proprietaire_modal.dart';
 
 class AllRecordsScreen extends StatefulWidget {
   const AllRecordsScreen({super.key});
@@ -201,7 +209,7 @@ class _VehiclesTabState extends State<VehiclesTab> {
         onRetirerVehicule: () => _retirerVehicule(vehicle),
         onRetirerPlaque: () => _retirerPlaque(vehicle),
         onPlaqueTemporaire: () => _plaqueTemporaire(vehicle),
-        onEmettreAvis: () => _emettreAvisRecherche(vehicle),
+        onEmettreAvis: () => _emettreAvisRechercheVehicule(vehicle),
       ),
     );
   }
@@ -221,18 +229,188 @@ class _VehiclesTabState extends State<VehiclesTab> {
     }
   }
 
-  void _changerProprietaire(Map<String, dynamic> vehicle) {
-    toastification.show(
+  void _changerProprietaire(Map<String, dynamic> vehicle) async {
+    // Étape 1: Rechercher et sélectionner un particulier ou une entreprise
+    final proprietaireResult = await showDialog<Map<String, dynamic>>(
       context: context,
-      type: ToastificationType.warning,
-      style: ToastificationStyle.fillColored,
-      title: const Text('Fonctionnalité en développement'),
-      description: const Text(
-          'La fonctionnalité de changement de propriétaire est en cours de développement'),
-      alignment: Alignment.topRight,
-      autoCloseDuration: const Duration(seconds: 4),
-      showProgressBar: true,
+      builder: (context) => const RechercheProprietaireModal(),
     );
+    
+    if (proprietaireResult == null) return;
+    
+    final type = proprietaireResult['type']; // 'particulier' ou 'entreprise'
+    final id = proprietaireResult['id'];
+    final data = proprietaireResult['data'];
+    
+    // Étape 2: Afficher la modal de transfert (date et notes)
+    final transfertResult = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => TransfertProprietaireModal(
+        vehicule: vehicle,
+        isEntreprise: type == 'entreprise',
+      ),
+    );
+    
+    if (transfertResult == null) return;
+    
+    // Étape 3: Envoyer à l'API selon le type (avec gestion de confirmation)
+    await _processAssociation(vehicle, type, id, data, transfertResult, false);
+  }
+
+  Future<void> _processAssociation(
+    Map<String, dynamic> vehicle,
+    String type,
+    int id,
+    Map<String, dynamic> data,
+    Map<String, dynamic> transfertResult,
+    bool force,
+  ) async {
+    try {
+      final username = context.read<AuthProvider>().username;
+      final apiClient = ApiClient(baseUrl: ApiConfig.baseUrl);
+      
+      final endpoint = type == 'particulier' 
+          ? '/particulier-vehicule/associer'
+          : '/entreprise-vehicule/associer';
+      
+      final requestData = type == 'particulier'
+          ? {
+              'particulier_id': id,
+              'vehicule_plaque_id': vehicle['id'],
+              'role': transfertResult['role'],
+              'date_assoc': transfertResult['date_assoc'],
+              'notes': transfertResult['notes'],
+              'username': username,
+              'force': force,
+            }
+          : {
+              'entreprise_id': id,
+              'vehicule_plaque_id': vehicle['id'],
+              'date_assoc': transfertResult['date_assoc'],
+              'notes': transfertResult['notes'],
+              'username': username,
+              'force': force,
+            };
+      
+      final response = await apiClient.postJson(endpoint, requestData);
+      final responseData = json.decode(response.body);
+      
+      if (mounted) {
+        // Si nécessite confirmation, afficher le dialogue
+        if (responseData['requiresConfirmation'] == true) {
+          final currentOwner = responseData['currentOwner'];
+          final String ownerInfo;
+          
+          if (currentOwner != null) {
+            if (currentOwner['owner_type'] == 'particulier') {
+              ownerInfo = '${currentOwner['nom']} ${currentOwner['prenom'] ?? ''}';
+            } else {
+              ownerInfo = currentOwner['designation'] ?? 'Entreprise';
+            }
+          } else {
+            ownerInfo = 'un propriétaire';
+          }
+          
+          final bool? confirmed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Véhicule déjà affecté'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Ce véhicule est déjà affecté à $ownerInfo.',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Historique des affectations: ${responseData['existingAssociations']['totalCount']} enregistrement(s)',
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '• Particuliers: ${responseData['existingAssociations']['countParticulier']}',
+                  ),
+                  Text(
+                    '• Entreprises: ${responseData['existingAssociations']['countEntreprise']}',
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Voulez-vous continuer et créer une nouvelle affectation ?',
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'L\'historique complet sera préservé.',
+                    style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Annuler'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Confirmer l\'affectation'),
+                ),
+              ],
+            ),
+          );
+          
+          if (confirmed == true) {
+            // Réessayer avec force = true
+            await _processAssociation(vehicle, type, id, data, transfertResult, true);
+          }
+        } else if (responseData['success'] == true) {
+          final nom = type == 'particulier'
+              ? '${data['nom']} ${data['prenom']}'
+              : data['designation'];
+          
+          toastification.show(
+            context: context,
+            type: ToastificationType.success,
+            style: ToastificationStyle.fillColored,
+            title: const Text('Association réussie'),
+            description: Text('$nom a été associé(e) au véhicule ${vehicle['plaque']}'),
+            alignment: Alignment.topRight,
+            autoCloseDuration: const Duration(seconds: 4),
+            showProgressBar: true,
+          );
+          
+          // Rafraîchir la liste
+          context.read<VehiculeProvider>().refresh();
+        } else {
+          toastification.show(
+            context: context,
+            type: ToastificationType.error,
+            style: ToastificationStyle.fillColored,
+            title: const Text('Erreur'),
+            description: Text(responseData['message'] ?? 'Erreur lors de l\'association'),
+            alignment: Alignment.topRight,
+            autoCloseDuration: const Duration(seconds: 4),
+            showProgressBar: true,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Erreur'),
+          description: Text('Erreur de connexion: $e'),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 4),
+          showProgressBar: true,
+        );
+      }
+    }
   }
 
   void _retirerVehicule(Map<String, dynamic> vehicle) async {
@@ -332,34 +510,22 @@ class _VehiclesTabState extends State<VehiclesTab> {
   }
 
   void _retirerPlaque(Map<String, dynamic> vehicle) async {
-    // Confirmation avant retrait
-    final bool? confirmed = await showDialog<bool>(
+    // Afficher la modal de retrait avec date et motif
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmer le retrait de plaque'),
-        content: Text(
-          'Êtes-vous sûr de vouloir retirer la plaque "${vehicle['plaque'] ?? 'N/A'}" de ce véhicule ?\n\n'
-          'Cette action supprimera définitivement les informations de plaque du véhicule.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Retirer la plaque'),
-          ),
-        ],
-      ),
+      builder: (context) => RetirerPlaqueModal(vehicule: vehicle),
     );
 
-    if (confirmed != true) return;
+    if (result == null) return;
 
     try {
-      // Appel API pour retirer la plaque
-      final response = await _retirerPlaqueAPI(vehicle['id']);
+      // Appel API pour retirer la plaque avec les informations
+      final response = await _retirerPlaqueAPI(
+        vehicle['id'],
+        result['dateRetrait'],
+        result['motif'],
+        result['observations'],
+      );
 
       if (response['success'] == true) {
         // Succès
@@ -412,44 +578,55 @@ class _VehiclesTabState extends State<VehiclesTab> {
     }
   }
 
-  Future<Map<String, dynamic>> _retirerPlaqueAPI(int vehiculeId) async {
+  Future<Map<String, dynamic>> _retirerPlaqueAPI(
+    int vehiculeId,
+    String dateRetrait,
+    String motif,
+    String observations,
+  ) async {
     final username = context.read<AuthProvider>().username;
     final apiClient = ApiClient(baseUrl: ApiConfig.baseUrl);
     final response = await apiClient.postJson(
       '/vehicule/$vehiculeId/retirer-plaque',
       {
         'username': username,
+        'date_retrait': dateRetrait,
+        'motif': motif,
+        'observations': observations,
       },
     );
 
     return json.decode(response.body);
   }
 
-  void _plaqueTemporaire(Map<String, dynamic> vehicle) {
-    toastification.show(
+  void _plaqueTemporaire(Map<String, dynamic> vehicle) async {
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    
+    final result = await showDialog<bool>(
       context: context,
-      type: ToastificationType.warning,
-      style: ToastificationStyle.fillColored,
-      title: const Text('Fonctionnalité en développement'),
-      description: const Text(
-          'La fonctionnalité de plaque temporaire est en cours de développement'),
-      alignment: Alignment.topRight,
-      autoCloseDuration: const Duration(seconds: 4),
-      showProgressBar: true,
+      builder: (context) => PlaqueTemporaireModal(vehicule: vehicle),
     );
+
+    if (result == true) {
+      // Rafraîchir la liste des véhicules après génération réussie
+      if (mounted) {
+        context.read<VehiculeProvider>().refresh();
+      }
+    }
   }
 
-  void _emettreAvisRecherche(Map<String, dynamic> vehicle) {
-    toastification.show(
+  void _emettreAvisRechercheVehicule(Map<String, dynamic> vehicle) {
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
       context: context,
-      type: ToastificationType.warning,
-      style: ToastificationStyle.fillColored,
-      title: const Text('Fonctionnalité en développement'),
-      description: const Text(
-          'La fonctionnalité d\'avis de recherche est en cours de développement'),
-      alignment: Alignment.topRight,
-      autoCloseDuration: const Duration(seconds: 4),
-      showProgressBar: true,
+      builder: (context) => EmettreAvisRechercheModal(
+        cible: vehicle,
+        cibleType: 'vehicule_plaque',
+        onSuccess: () {
+          // Rafraîchir la liste des véhicules après succès
+          context.read<VehiculeProvider>().refresh();
+        },
+      ),
     );
   }
 
@@ -783,19 +960,13 @@ class _ParticuliersTabState extends State<ParticuliersTab> {
   void _showEditParticulierModal(Map<String, dynamic> particulier) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Modifier ${particulier['nom']}'),
-        content: const SizedBox(
-          width: 400,
-          child: Text(
-              'Fonctionnalité de modification en cours de développement...'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Fermer'),
-          ),
-        ],
+      barrierDismissible: false,
+      builder: (context) => EditParticulierModal(
+        particulier: particulier,
+        onSuccess: () {
+          // Rafraîchir la liste des particuliers après modification
+          context.read<ParticulierProvider>().refresh();
+        },
       ),
     );
   }
@@ -810,36 +981,36 @@ class _ParticuliersTabState extends State<ParticuliersTab> {
         onCreerContravention: () =>
             _createContraventionForParticulier(particulier),
         onConsignerArrestation: () => _consignerArrestation(particulier),
-        onEmettreAvisRecherche: () => _emettreAvisRecherche(particulier),
+        onEmettreAvisRecherche: () => _emettreAvisRechercheParticulier(particulier),
       ),
     );
   }
 
   void _createContraventionForParticulier(Map<String, dynamic> particulier) {
-    toastification.show(
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
       context: context,
-      type: ToastificationType.warning,
-      style: ToastificationStyle.fillColored,
-      title: const Text('Fonctionnalité en développement'),
-      description: const Text(
-          'La fonctionnalité de création de contravention est en cours de développement'),
-      alignment: Alignment.topRight,
-      autoCloseDuration: const Duration(seconds: 4),
-      showProgressBar: true,
+      builder: (context) => AssignContraventionParticulierModal(
+        particulier: particulier,
+        onSuccess: () {
+          // Rafraîchir la liste des particuliers après succès
+          context.read<ParticulierProvider>().refresh();
+        },
+      ),
     );
   }
 
   void _emettrePermisTemporaire(Map<String, dynamic> particulier) {
-    toastification.show(
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
       context: context,
-      type: ToastificationType.warning,
-      style: ToastificationStyle.fillColored,
-      title: const Text('Fonctionnalité en développement'),
-      description: const Text(
-          'La fonctionnalité d\'émission de permis temporaire est en cours de développement'),
-      alignment: Alignment.topRight,
-      autoCloseDuration: const Duration(seconds: 4),
-      showProgressBar: true,
+      builder: (context) => GenererPermisTemporaireModal(
+        particulier: particulier,
+        onSuccess: () {
+          // Rafraîchir la liste des particuliers après succès
+          context.read<ParticulierProvider>().refresh();
+        },
+      ),
     );
   }
 
@@ -858,30 +1029,31 @@ class _ParticuliersTabState extends State<ParticuliersTab> {
   }
 
   void _consignerArrestation(Map<String, dynamic> particulier) {
-    toastification.show(
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
       context: context,
-      type: ToastificationType.warning,
-      style: ToastificationStyle.fillColored,
-      title: const Text('Fonctionnalité en développement'),
-      description: const Text(
-          'La fonctionnalité de consignation d\'arrestation est en cours de développement'),
-      alignment: Alignment.topRight,
-      autoCloseDuration: const Duration(seconds: 4),
-      showProgressBar: true,
+      builder: (context) => ConsignerArrestationModal(
+        particulier: particulier,
+        onSuccess: () {
+          // Rafraîchir la liste des particuliers après succès
+          context.read<ParticulierProvider>().refresh();
+        },
+      ),
     );
   }
 
-  void _emettreAvisRecherche(Map<String, dynamic> particulier) {
-    toastification.show(
+  void _emettreAvisRechercheParticulier(Map<String, dynamic> particulier) {
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
       context: context,
-      type: ToastificationType.warning,
-      style: ToastificationStyle.fillColored,
-      title: const Text('Fonctionnalité en développement'),
-      description: const Text(
-          'La fonctionnalité d\'émission d\'avis de recherche est en cours de développement'),
-      alignment: Alignment.topRight,
-      autoCloseDuration: const Duration(seconds: 4),
-      showProgressBar: true,
+      builder: (context) => EmettreAvisRechercheModal(
+        cible: particulier,
+        cibleType: 'particuliers',
+        onSuccess: () {
+          // Rafraîchir la liste des particuliers après succès
+          context.read<ParticulierProvider>().refresh();
+        },
+      ),
     );
   }
 

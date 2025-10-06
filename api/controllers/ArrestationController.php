@@ -12,22 +12,38 @@ class ArrestationController extends BaseController {
     }
     
     /**
+     * Convert ISO 8601 date to MySQL format
+     */
+    private function convertDateToMysql($isoDate) {
+        if (!$isoDate) return null;
+        
+        try {
+            $date = new DateTime($isoDate);
+            return $date->format('Y-m-d H:i:s');
+        } catch (Exception $e) {
+            return $isoDate; // Return as-is if conversion fails
+        }
+    }
+    
+    /**
      * Create new arrestation
      */
     public function create($data) {
         try {
-            $query = "INSERT INTO {$this->table} (numero, particulier_id, motif, lieu, date_arrestation, agent_id, statut, observations, created_at) 
-                     VALUES (:numero, :particulier_id, :motif, :lieu, :date_arrestation, :agent_id, :statut, :observations, NOW())";
+            // Convert dates to MySQL format
+            $dateArrestation = $this->convertDateToMysql($data['date_arrestation']);
+            $dateSortiePrison = $this->convertDateToMysql($data['date_sortie_prison'] ?? null);
+            
+            $query = "INSERT INTO {$this->table} (particulier_id, motif, lieu, date_arrestation, date_sortie_prison, created_by, created_at, updated_at) 
+                     VALUES (:particulier_id, :motif, :lieu, :date_arrestation, :date_sortie_prison, :created_by, NOW(), NOW())";
             
             $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':numero', $data['numero']);
             $stmt->bindParam(':particulier_id', $data['particulier_id']);
             $stmt->bindParam(':motif', $data['motif']);
             $stmt->bindParam(':lieu', $data['lieu']);
-            $stmt->bindParam(':date_arrestation', $data['date_arrestation']);
-            $stmt->bindParam(':agent_id', $data['agent_id']);
-            $stmt->bindParam(':statut', $data['statut'] ?? 'en_detention');
-            $stmt->bindParam(':observations', $data['observations']);
+            $stmt->bindParam(':date_arrestation', $dateArrestation);
+            $stmt->bindParam(':date_sortie_prison', $dateSortiePrison);
+            $stmt->bindParam(':created_by', $data['created_by']);
             
             if ($stmt->execute()) {
                 return [
@@ -51,37 +67,39 @@ class ArrestationController extends BaseController {
     }
     
     /**
-     * Release person (libération)
+     * Update liberation status (libération/détention)
      */
-    public function release($id, $motif_liberation = '') {
+    public function updateLiberationStatus($id, $dateSortie = null) {
         try {
+            // Convert date to MySQL format
+            $dateSortieMysql = $this->convertDateToMysql($dateSortie);
+            
             $query = "UPDATE {$this->table} SET 
-                     statut = 'libéré', 
-                     motif_liberation = :motif_liberation, 
-                     date_liberation = NOW(),
+                     date_sortie_prison = :date_sortie_prison,
                      updated_at = NOW()
                      WHERE id = :id";
             
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':id', $id);
-            $stmt->bindParam(':motif_liberation', $motif_liberation);
+            $stmt->bindParam(':date_sortie_prison', $dateSortieMysql);
             
             if ($stmt->execute()) {
+                $status = $dateSortie ? 'libérée' : 'en détention';
                 return [
                     'success' => true,
-                    'message' => 'Personne libérée avec succès'
+                    'message' => "Personne marquée comme $status avec succès"
                 ];
             }
             
             return [
                 'success' => false,
-                'message' => 'Erreur lors de la libération'
+                'message' => 'Erreur lors de la mise à jour du statut'
             ];
             
         } catch (Exception $e) {
             return [
                 'success' => false,
-                'message' => 'Erreur lors de la libération: ' . $e->getMessage()
+                'message' => 'Erreur lors de la mise à jour: ' . $e->getMessage()
             ];
         }
     }
@@ -92,11 +110,9 @@ class ArrestationController extends BaseController {
     public function getById($id) {
         try {
             $query = "SELECT a.*, 
-                     p.nom as particulier_nom, p.prenom as particulier_prenom, p.numero_carte_identite,
-                     u.nom as agent_nom
+                     p.nom as particulier_nom, p.prenom as particulier_prenom, p.gsm as particulier_gsm
                      FROM {$this->table} a
                      LEFT JOIN particuliers p ON a.particulier_id = p.id
-                     LEFT JOIN users u ON a.agent_id = u.id
                      WHERE a.id = :id LIMIT 1";
             
             $stmt = $this->db->prepare($query);
@@ -127,10 +143,8 @@ class ArrestationController extends BaseController {
      */
     public function getByParticulier($particulierId) {
         try {
-            $query = "SELECT a.*, 
-                     u.nom as agent_nom
+            $query = "SELECT a.*
                      FROM {$this->table} a
-                     LEFT JOIN users u ON a.agent_id = u.id
                      WHERE a.particulier_id = :particulier_id
                      ORDER BY a.date_arrestation DESC, a.created_at DESC";
             
@@ -160,7 +174,7 @@ class ArrestationController extends BaseController {
     public function getCurrentDetainees() {
         try {
             $query = "SELECT a.*, 
-                     p.nom as particulier_nom, p.prenom as particulier_prenom,
+                     p.nom as particulier_nom, p.prenom as particulier_prenom, p.gsm as particulier_gsm,
                      u.nom as agent_nom
                      FROM {$this->table} a
                      LEFT JOIN particuliers p ON a.particulier_id = p.id

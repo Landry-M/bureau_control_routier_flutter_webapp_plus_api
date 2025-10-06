@@ -3,10 +3,12 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:toastification/toastification.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
 
 import '../config/api_config.dart';
 import '../services/api_client.dart';
+import '../utils/date_time_picker_theme.dart';
 class VehiculeDetailsModal extends StatefulWidget {
   final Map<String, dynamic> vehicule;
 
@@ -24,17 +26,37 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
   late TabController _tabController;
   List<Map<String, dynamic>> _contraventions = [];
   List<Map<String, dynamic>> _assurances = [];
+  List<Map<String, dynamic>> _plaquesTemporaires = [];
+  List<Map<String, dynamic>> _avisRecherche = [];
+  List<Map<String, dynamic>> _historiqueRetraits = [];
+  Map<String, dynamic>? _proprietaire;
+  Map<String, dynamic>? _proprietaireEntreprise;
   bool _loadingContraventions = false;
   bool _loadingAssurances = false;
+  bool _loadingPlaquesTemporaires = false;
+  bool _loadingAvisRecherche = false;
+  bool _loadingHistoriqueRetraits = false;
+  bool _loadingProprietaire = false;
+  bool _loadingProprietaireEntreprise = false;
   String? _errorContraventions;
   String? _errorAssurances;
+  String? _errorPlaquesTemporaires;
+  String? _errorAvisRecherche;
+  String? _errorHistoriqueRetraits;
+  String? _errorProprietaire;
+  String? _errorProprietaireEntreprise;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _loadContraventions();
     _loadAssurances();
+    _loadPlaquesTemporaires();
+    _loadAvisRecherche();
+    _loadHistoriqueRetraits();
+    _loadProprietaire();
+    _loadProprietaireEntreprise();
   }
 
   @override
@@ -105,6 +127,190 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
     } finally {
       setState(() {
         _loadingAssurances = false;
+      });
+    }
+  }
+
+  Future<void> _loadPlaquesTemporaires() async {
+    setState(() {
+      _loadingPlaquesTemporaires = true;
+      _errorPlaquesTemporaires = null;
+    });
+
+    try {
+      final username = context.read<AuthProvider>().username;
+      final api = ApiClient(baseUrl: ApiConfig.baseUrl);
+      final response = await api
+          .get('/plaques-temporaires/vehicule/${widget.vehicule['id']}?username=$username');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _plaquesTemporaires = List<Map<String, dynamic>>.from(data['data'] ?? []);
+        });
+      } else {
+        setState(() {
+          _errorPlaquesTemporaires = 'Erreur lors du chargement des plaques temporaires';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorPlaquesTemporaires = 'Erreur: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _loadingPlaquesTemporaires = false;
+      });
+    }
+  }
+
+  Future<void> _loadAvisRecherche() async {
+    setState(() {
+      _loadingAvisRecherche = true;
+      _errorAvisRecherche = null;
+    });
+
+    try {
+      final url = Uri.parse(ApiConfig.baseUrl).replace(
+        queryParameters: {
+          'route': '/avis-recherche/vehicule/${widget.vehicule['id']}',
+        },
+      );
+
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          setState(() {
+            _avisRecherche = List<Map<String, dynamic>>.from(data['data'] ?? []);
+          });
+        } else {
+          setState(() {
+            _errorAvisRecherche = data['message'] ?? 'Erreur lors du chargement des avis de recherche';
+          });
+        }
+      } else {
+        setState(() {
+          _errorAvisRecherche = 'Erreur serveur: ${response.statusCode}';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorAvisRecherche = 'Erreur de connexion: $e';
+      });
+    } finally {
+      setState(() {
+        _loadingAvisRecherche = false;
+      });
+    }
+  }
+
+  Future<void> _loadHistoriqueRetraits() async {
+    setState(() {
+      _loadingHistoriqueRetraits = true;
+      _errorHistoriqueRetraits = null;
+    });
+
+    try {
+      final username = context.read<AuthProvider>().username;
+      final api = ApiClient(baseUrl: ApiConfig.baseUrl);
+      final response = await api
+          .get('/vehicule/${widget.vehicule['id']}/historique-retraits?username=$username');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _historiqueRetraits = List<Map<String, dynamic>>.from(data['data'] ?? []);
+        });
+      } else {
+        setState(() {
+          _errorHistoriqueRetraits = 'Erreur lors du chargement de l\'historique';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorHistoriqueRetraits = 'Erreur: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _loadingHistoriqueRetraits = false;
+      });
+    }
+  }
+
+  Future<void> _loadProprietaire() async {
+    // Vérifier si le véhicule a un conducteur_id
+    final conducteurId = widget.vehicule['conducteur_id'];
+    if (conducteurId == null) {
+      setState(() {
+        _loadingProprietaire = false;
+        _proprietaire = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _loadingProprietaire = true;
+      _errorProprietaire = null;
+    });
+
+    try {
+      final username = context.read<AuthProvider>().username;
+      final api = ApiClient(baseUrl: ApiConfig.baseUrl);
+      final response = await api.get('/particulier/$conducteurId?username=$username');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _proprietaire = data['data'];
+        });
+      } else {
+        setState(() {
+          _errorProprietaire = 'Erreur lors du chargement du propriétaire';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorProprietaire = 'Erreur: ${e.toString()}';
+      });
+    } finally {
+      setState(() {
+        _loadingProprietaire = false;
+      });
+    }
+  }
+
+  Future<void> _loadProprietaireEntreprise() async {
+    setState(() {
+      _loadingProprietaireEntreprise = true;
+      _errorProprietaireEntreprise = null;
+    });
+
+    try {
+      final username = context.read<AuthProvider>().username;
+      final api = ApiClient(baseUrl: ApiConfig.baseUrl);
+      final response = await api.get(
+        '/vehicule/${widget.vehicule['id']}/proprietaire-entreprise?username=$username'
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _proprietaireEntreprise = data['data'];
+        });
+      } else {
+        setState(() {
+          _errorProprietaireEntreprise = null; // Pas d'entreprise propriétaire, ce n'est pas une erreur
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorProprietaireEntreprise = null; // Ignorer l'erreur si pas d'entreprise
+      });
+    } finally {
+      setState(() {
+        _loadingProprietaireEntreprise = false;
       });
     }
   }
@@ -239,6 +445,69 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
     );
   }
 
+  Widget _buildStatutCirculation() {
+    final enCirculation = widget.vehicule['en_circulation'];
+    final isEnCirculation = enCirculation == 1 || enCirculation == '1' || enCirculation == true;
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isEnCirculation 
+            ? Colors.green.withOpacity(0.1)
+            : Colors.red.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isEnCirculation 
+              ? Colors.green.withOpacity(0.3)
+              : Colors.red.withOpacity(0.3),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isEnCirculation ? Colors.green : Colors.red,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              isEnCirculation ? Icons.check_circle : Icons.cancel,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Statut de circulation',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isEnCirculation ? 'En circulation' : 'Retiré de la circulation',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: isEnCirculation ? Colors.green.shade700 : Colors.red.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildInfoTab() {
     final tt = Theme.of(context).textTheme;
     return SingleChildScrollView(
@@ -247,16 +516,21 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Section photos véhicule
-          if (widget.vehicule['images'] != null && widget.vehicule['images'].toString().isNotEmpty)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Photos du véhicule', style: tt.titleMedium),
-                const SizedBox(height: 8),
-                _buildVehiclePhotos(),
-                const SizedBox(height: 16),
-              ],
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Photos du véhicule',
+                style: tt.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildVehiclePhotos(),
+              const SizedBox(height: 24),
+            ],
+          ),
 
           // Informations principales - Colonne 1
           Row(
@@ -335,6 +609,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          _buildStatutCirculation(),
 
           const SizedBox(height: 16),
 
@@ -352,9 +628,245 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
               ),
             ],
           ),
+
+          // Informations du propriétaire si disponible
+          if (widget.vehicule['conducteur_id'] != null) ..._buildProprietaireSection(),
+          
+          // Informations de l'entreprise propriétaire si disponible
+          ..._buildProprietaireEntrepriseSection(),
         ],
       ),
     );
+  }
+
+  List<Widget> _buildProprietaireSection() {
+    return [
+      const SizedBox(height: 24),
+      const Divider(thickness: 2),
+      const SizedBox(height: 16),
+      Row(
+        children: [
+          Icon(
+            Icons.person,
+            color: Theme.of(context).colorScheme.primary,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Informations du propriétaire',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      if (_loadingProprietaire)
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: CircularProgressIndicator(),
+          ),
+        )
+      else if (_errorProprietaire != null)
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.red.shade300),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red.shade600),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _errorProprietaire!,
+                  style: TextStyle(color: Colors.red.shade600),
+                ),
+              ),
+            ],
+          ),
+        )
+      else if (_proprietaire != null)
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: DataTable(
+              columnSpacing: 16,
+              horizontalMargin: 16,
+              headingRowColor: MaterialStateProperty.all(
+                Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.5),
+              ),
+              dataRowMaxHeight: 60,
+              columns: const [
+                DataColumn(
+                  label: Text(
+                    'Champ',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Valeur',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+              rows: [
+                _buildProprietaireRow('ID', _proprietaire!['id']?.toString()),
+                _buildProprietaireRow('Nom', _proprietaire!['nom']),
+                _buildProprietaireRow('Téléphone', _proprietaire!['gsm']),
+                _buildProprietaireRow('Email', _proprietaire!['email']),
+                _buildProprietaireRow('Adresse', _proprietaire!['adresse']),
+                _buildProprietaireRow('N° Permis', _proprietaire!['numero_permis']),
+                _buildProprietaireRow(
+                  'Permis - Émission',
+                  _formatDate(_proprietaire!['permis_date_emission']),
+                ),
+                _buildProprietaireRow(
+                  'Permis - Expiration',
+                  _formatDate(_proprietaire!['permis_date_expiration']),
+                ),
+                _buildProprietaireRow('Catégorie permis', _proprietaire!['permis_categorie']),
+              ],
+            ),
+          ),
+        )
+      else
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.grey.shade600),
+              const SizedBox(width: 8),
+              Text(
+                'Aucune information de propriétaire disponible',
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ),
+    ];
+  }
+
+  DataRow _buildProprietaireRow(String label, String? value) {
+    return DataRow(
+      cells: [
+        DataCell(
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        DataCell(
+          Text(
+            value?.toString() ?? 'N/A',
+            style: const TextStyle(fontSize: 13),
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildProprietaireEntrepriseSection() {
+    // N'afficher que s'il y a une entreprise propriétaire
+    if (!_loadingProprietaireEntreprise && _proprietaireEntreprise == null) {
+      return [];
+    }
+
+    return [
+      const SizedBox(height: 24),
+      const Divider(thickness: 2),
+      const SizedBox(height: 16),
+      Row(
+        children: [
+          Icon(
+            Icons.business,
+            color: Theme.of(context).colorScheme.primary,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Propriétaire du véhicule',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      if (_loadingProprietaireEntreprise)
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: CircularProgressIndicator(),
+          ),
+        )
+      else if (_proprietaireEntreprise != null)
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: DataTable(
+              columnSpacing: 16,
+              horizontalMargin: 16,
+              headingRowColor: MaterialStateProperty.all(
+                Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.5),
+              ),
+              dataRowMaxHeight: 60,
+              columns: const [
+                DataColumn(
+                  label: Text(
+                    'Champ',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Valeur',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+              rows: [
+                _buildProprietaireRow('ID', _proprietaireEntreprise!['id']?.toString()),
+                _buildProprietaireRow('Désignation', _proprietaireEntreprise!['designation']),
+                _buildProprietaireRow('RCCM', _proprietaireEntreprise!['rccm']),
+                _buildProprietaireRow('Téléphone', _proprietaireEntreprise!['telephone']),
+                _buildProprietaireRow('Email', _proprietaireEntreprise!['email']),
+                _buildProprietaireRow('Siège social', _proprietaireEntreprise!['siege_social']),
+                _buildProprietaireRow('Secteur', _proprietaireEntreprise!['secteur']),
+                _buildProprietaireRow('Personne de contact', _proprietaireEntreprise!['personne_contact']),
+                _buildProprietaireRow(
+                  'Date association',
+                  _formatDate(_proprietaireEntreprise!['date_assoc']),
+                ),
+              ],
+            ),
+          ),
+        ),
+    ];
   }
 
   Widget _buildVehiclePhotos() {
@@ -365,36 +877,124 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
       if (imagesList.isEmpty) {
         return Container(
           padding: const EdgeInsets.all(16),
-          child: const Text('Aucune photo disponible'),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.photo_library_outlined, color: Colors.grey.shade600),
+              const SizedBox(width: 8),
+              Text(
+                'Aucune photo disponible',
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            ],
+          ),
         );
       }
 
       return SizedBox(
-        height: 100,
+        height: 120,
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           itemCount: imagesList.length,
           itemBuilder: (context, index) {
             final imagePath = imagesList[index].toString();
-            final imageUrl = '${ApiConfig.baseUrl}$imagePath';
+            final imageUrl = '${ApiConfig.imageBaseUrl}$imagePath';
             
             return Container(
-              margin: const EdgeInsets.only(right: 8),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  imageUrl,
-                  width: 100,
-                  height: 100,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: 100,
-                      height: 100,
-                      color: Colors.grey[300],
-                      child: const Icon(Icons.car_rental, color: Colors.grey),
-                    );
-                  },
+              margin: const EdgeInsets.only(right: 12),
+              child: GestureDetector(
+                onTap: () => _showFullScreenImage(imageUrl, 'Photo véhicule ${index + 1}'),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Stack(
+                      children: [
+                        Image.network(
+                          imageUrl,
+                          width: 120,
+                          height: 120,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              width: 120,
+                              height: 120,
+                              color: Colors.grey.shade200,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 120,
+                              height: 120,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.car_rental,
+                                    color: Colors.grey.shade500,
+                                    size: 32,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Image\nindisponible',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        // Overlay pour indiquer que l'image est cliquable
+                        Positioned(
+                          top: 4,
+                          right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Icon(
+                              Icons.zoom_in,
+                              color: Colors.white,
+                              size: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             );
@@ -404,9 +1004,122 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
     } catch (e) {
       return Container(
         padding: const EdgeInsets.all(16),
-        child: const Text('Erreur lors du chargement des photos'),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.red.shade300),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red.shade600),
+            const SizedBox(width: 8),
+            Text(
+              'Erreur lors du chargement des photos',
+              style: TextStyle(color: Colors.red.shade600),
+            ),
+          ],
+        ),
       );
     }
+  }
+
+  void _showFullScreenImage(String imageUrl, String title) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Stack(
+          children: [
+            // Image en plein écran
+            Center(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        width: 300,
+                        height: 300,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.car_rental,
+                              color: Colors.grey.shade500,
+                              size: 64,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Image indisponible',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+            // Bouton fermer
+            Positioned(
+              top: 40,
+              right: 40,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+            // Titre de l'image
+            Positioned(
+              bottom: 40,
+              left: 40,
+              right: 40,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -494,6 +1207,18 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                     icon: Icon(Icons.security),
                     text: 'Assurances',
                   ),
+                  Tab(
+                    icon: Icon(Icons.access_time),
+                    text: 'Plaques temp.',
+                  ),
+                  Tab(
+                    icon: Icon(Icons.search),
+                    text: 'Avis recherche',
+                  ),
+                  Tab(
+                    icon: Icon(Icons.history),
+                    text: 'Historique retraits',
+                  ),
                 ],
               ),
             ),
@@ -506,6 +1231,9 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                   _buildInfoTab(),
                   _buildContraventionsTab(),
                   _buildAssurancesTab(),
+                  _buildPlaquesTemporairesTab(),
+                  _buildAvisRechercheTab(),
+                  _buildHistoriqueRetraitsTab(),
                 ],
               ),
             ),
@@ -1036,6 +1764,844 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
       ),
     );
   }
+
+  Widget _buildPlaquesTemporairesTab() {
+    if (_loadingPlaquesTemporaires) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_errorPlaquesTemporaires != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Erreur de chargement',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _errorPlaquesTemporaires!,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _loadPlaquesTemporaires,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Réessayer'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_plaquesTemporaires.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.access_time_outlined,
+                size: 64,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Aucune plaque temporaire',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Ce véhicule n\'a aucune plaque temporaire enregistrée.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context)
+                  .colorScheme
+                  .surfaceContainer
+                  .withOpacity(0.3),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.access_time,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Historique des plaques temporaires (${_plaquesTemporaires.length})',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Tableau des plaques temporaires
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: DataTable(
+                columnSpacing: 8,
+                horizontalMargin: 12,
+                headingRowColor: WidgetStateProperty.all(
+                  Theme.of(context)
+                      .colorScheme
+                      .surfaceContainer
+                      .withOpacity(0.5),
+                ),
+                dataRowMaxHeight: 60,
+                columns: const [
+                  DataColumn(
+                    label: Expanded(
+                      flex: 2,
+                      child: Text('Numéro', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Expanded(
+                      flex: 2,
+                      child: Text('Dates validité', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Expanded(
+                      flex: 3,
+                      child: Text('Motif', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Expanded(
+                      flex: 1,
+                      child: Text('Statut', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Expanded(
+                      flex: 1,
+                      child: Text('PDF', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+                rows: _plaquesTemporaires.map((plaque) {
+                  final dateDebut = _formatDate(plaque['date_debut']);
+                  final dateFin = _formatDate(plaque['date_fin']);
+                  final isExpired = _isPlaqueExpired(plaque['date_fin']);
+                  final statut = plaque['statut'] ?? 'actif';
+                  
+                  return DataRow(
+                    cells: [
+                      DataCell(
+                        Container(
+                          width: double.infinity,
+                          child: Text(
+                            plaque['numero'] ?? '',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          width: double.infinity,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Du: $dateDebut',
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                              Text(
+                                'Au: $dateFin',
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          width: double.infinity,
+                          child: Text(
+                            plaque['motif'] ?? '',
+                            style: const TextStyle(fontSize: 12),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          width: double.infinity,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: statut == 'actif' ? Colors.green.shade100 : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  statut == 'actif' ? 'Actif' : 'Clos',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: statut == 'actif' ? Colors.green.shade700 : Colors.grey.shade700,
+                                  ),
+                                ),
+                              ),
+                              if (isExpired) ...[
+                                const SizedBox(height: 2),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade100,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    'Expiré',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.red.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          width: double.infinity,
+                          child: IconButton(
+                            onPressed: () => _viewPlaqueTemporairePdf(plaque),
+                            icon: const Icon(Icons.visibility, size: 20),
+                            style: IconButton.styleFrom(
+                              foregroundColor: Colors.grey[700],
+                              minimumSize: const Size(32, 32),
+                              padding: const EdgeInsets.all(4),
+                            ),
+                            tooltip: 'Voir le PDF',
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _isPlaqueExpired(String? dateFin) {
+    if (dateFin == null) return false;
+    try {
+      final date = DateTime.parse(dateFin);
+      return date.isBefore(DateTime.now());
+    } catch (e) {
+      return false;
+    }
+  }
+
+  void _viewPlaqueTemporairePdf(Map<String, dynamic> plaque) async {
+    final plaqueId = plaque['id'];
+    final previewUrl = "http://localhost:8000/api/plaque_temporaire_display.php?id=$plaqueId";
+    
+    try {
+      final uri = Uri.parse(previewUrl);
+      
+      // Essayer d'abord avec le mode externe
+      bool launched = false;
+      try {
+        launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+      } catch (e) {
+        // Si ça échoue, essayer avec le mode par défaut
+        try {
+          launched = await launchUrl(
+            uri,
+            mode: LaunchMode.platformDefault,
+          );
+        } catch (e2) {
+          // En dernier recours, essayer avec webViewOrSafari
+          launched = await launchUrl(
+            uri,
+            mode: LaunchMode.inAppWebView,
+          );
+        }
+      }
+      
+      if (launched) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Prévisualisation ouverte'),
+          description: Text('Plaque ${plaque['numero']} ouverte dans une nouvelle fenêtre'),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 3),
+          showProgressBar: true,
+        );
+      } else {
+        // Si toutes les tentatives échouent, afficher l'URL
+        _showUrlFallback(previewUrl);
+      }
+    } catch (e) {
+      // En cas d'erreur générale, afficher l'URL
+      _showUrlFallback(previewUrl);
+    }
+  }
+  
+  void _showUrlFallback(String url) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Prévisualisation de la plaque'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Copiez cette URL dans votre navigateur pour voir la plaque temporaire:'),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: SelectableText(
+                url,
+                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Fermer'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              // Essayer encore une fois d'ouvrir l'URL
+              try {
+                await launchUrl(Uri.parse(url));
+              } catch (e) {
+                // Ignorer l'erreur, l'utilisateur a l'URL
+              }
+            },
+            child: const Text('Essayer d\'ouvrir'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvisRechercheTab() {
+    if (_loadingAvisRecherche) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_errorAvisRecherche != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Erreur de chargement',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _errorAvisRecherche!,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _loadAvisRecherche,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Réessayer'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_avisRecherche.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.search_off,
+                size: 64,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Aucun avis de recherche',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Ce véhicule n\'a aucun avis de recherche enregistré.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.search,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Avis de recherche (${_avisRecherche.length})',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: DataTable(
+                columnSpacing: 8,
+                horizontalMargin: 12,
+                headingRowColor: MaterialStateProperty.all(
+                  Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.5),
+                ),
+                dataRowMaxHeight: 60,
+                columns: const [
+                  DataColumn(label: Expanded(flex: 1, child: Text('ID', style: TextStyle(fontWeight: FontWeight.bold)))),
+                  DataColumn(label: Expanded(flex: 3, child: Text('Motif', style: TextStyle(fontWeight: FontWeight.bold)))),
+                  DataColumn(label: Expanded(flex: 2, child: Text('Niveau', style: TextStyle(fontWeight: FontWeight.bold)))),
+                  DataColumn(label: Expanded(flex: 2, child: Text('Date émission', style: TextStyle(fontWeight: FontWeight.bold)))),
+                  DataColumn(label: Expanded(flex: 1, child: Text('Actif', style: TextStyle(fontWeight: FontWeight.bold)))),
+                ],
+                rows: _avisRecherche.map((avis) {
+                  final niveau = avis['niveau'] ?? 'moyen';
+                  final statut = avis['statut'] ?? 'actif';
+                  final dateEmission = _formatDate(avis['created_at']);
+                  final isActif = statut.toLowerCase() == 'actif';
+
+                  Color niveauColor;
+                  switch (niveau.toLowerCase()) {
+                    case 'faible':
+                      niveauColor = Colors.green;
+                      break;
+                    case 'élevé':
+                    case 'eleve':
+                      niveauColor = Colors.red;
+                      break;
+                    default:
+                      niveauColor = Colors.orange;
+                  }
+
+                  return DataRow(
+                    cells: [
+                      DataCell(
+                        Container(
+                          width: double.infinity,
+                          child: Text('#${avis['id']}', style: const TextStyle(fontWeight: FontWeight.w500)),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          width: double.infinity,
+                          child: Text(
+                            avis['motif'] ?? 'N/A',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          width: double.infinity,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: niveauColor.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: niveauColor),
+                            ),
+                            child: Text(
+                              niveau.toUpperCase(),
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: niveauColor),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          width: double.infinity,
+                          child: Text(dateEmission, style: const TextStyle(fontSize: 12)),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          width: double.infinity,
+                          child: Switch(
+                            value: isActif,
+                            onChanged: (value) {
+                              _updateAvisRechercheStatus(avis['id'], value ? 'actif' : 'inactif');
+                            },
+                            activeColor: Colors.red,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateAvisRechercheStatus(int avisId, String statut) async {
+    try {
+      final authProvider = context.read<AuthProvider>();
+      final response = await http.post(
+        Uri.parse(ApiConfig.baseUrl).replace(
+          queryParameters: {'route': '/avis-recherche/$avisId/update-status'},
+        ),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'statut': statut,
+          'username': authProvider.username,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        setState(() {
+          final index = _avisRecherche.indexWhere((a) => a['id'] == avisId);
+          if (index != -1) {
+            _avisRecherche[index]['statut'] = statut;
+          }
+        });
+
+        if (mounted) {
+          toastification.show(
+            context: context,
+            type: ToastificationType.success,
+            style: ToastificationStyle.fillColored,
+            title: const Text('Statut mis à jour'),
+            description: Text('L\'avis de recherche est maintenant ${statut}'),
+            alignment: Alignment.topRight,
+            autoCloseDuration: const Duration(seconds: 3),
+            showProgressBar: true,
+          );
+        }
+      } else {
+        throw Exception(data['message'] ?? 'Erreur lors de la mise à jour');
+      }
+    } catch (e) {
+      if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Erreur'),
+          description: Text('Impossible de mettre à jour le statut: ${e.toString()}'),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 4),
+          showProgressBar: true,
+        );
+      }
+    }
+  }
+
+  Widget _buildHistoriqueRetraitsTab() {
+    if (_loadingHistoriqueRetraits) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_errorHistoriqueRetraits != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Erreur de chargement',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _errorHistoriqueRetraits!,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _loadHistoriqueRetraits,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Réessayer'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_historiqueRetraits.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.history,
+                size: 64,
+                color: Theme.of(context).colorScheme.outline,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Aucun retrait de plaque',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Aucune plaque n\'a été retirée pour ce véhicule.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.history,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Historique des retraits (${_historiqueRetraits.length})',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: DataTable(
+                columnSpacing: 8,
+                horizontalMargin: 12,
+                headingRowColor: MaterialStateProperty.all(
+                  Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.5),
+                ),
+                dataRowMaxHeight: 70,
+                columns: const [
+                  DataColumn(label: Expanded(flex: 1, child: Text('ID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
+                  DataColumn(label: Expanded(flex: 2, child: Text('Plaque retirée', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
+                  DataColumn(label: Expanded(flex: 2, child: Text('Date retrait', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
+                  DataColumn(label: Expanded(flex: 2, child: Text('Motif', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
+                  DataColumn(label: Expanded(flex: 3, child: Text('Observations', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
+                ],
+                rows: _historiqueRetraits.map((historique) {
+                  final dateRetrait = _formatDate(historique['date_retrait']);
+                  final plaque = historique['ancienne_plaque'] ?? 'N/A';
+                  final motif = historique['motif'] ?? '-';
+                  final observations = historique['observations'] ?? '-';
+
+                  return DataRow(
+                    cells: [
+                      DataCell(
+                        Container(
+                          width: double.infinity,
+                          child: Text('#${historique['id']}', style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12)),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          width: double.infinity,
+                          child: Text(
+                            plaque,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          width: double.infinity,
+                          child: Text(
+                            dateRetrait,
+                            style: const TextStyle(fontSize: 12),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          width: double.infinity,
+                          child: Text(
+                            motif,
+                            style: const TextStyle(fontSize: 12),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          width: double.infinity,
+                          child: Text(
+                            observations,
+                            style: const TextStyle(fontSize: 12),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _AssuranceModal extends StatefulWidget {
@@ -1093,25 +2659,7 @@ class _AssuranceModalState extends State<_AssuranceModal> {
       initialDate: DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: Theme.of(context).colorScheme.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: buildThemedPicker,
     );
 
     if (date != null) {

@@ -374,7 +374,7 @@ class VehiculeController extends BaseController {
      */
     public function getByPlaque($plaque) {
         try {
-            $query = "SELECT v.*, p.nom as proprietaire_nom, p.prenom as proprietaire_prenom 
+            $query = "SELECT v.*, p.nom as proprietaire_nom, p.prenom as proprietaire_prenom, p.gsm as proprietaire_gsm 
                      FROM {$this->table} v 
                      LEFT JOIN particuliers p ON v.proprietaire_id = p.id 
                      WHERE v.plaque = :plaque LIMIT 1";
@@ -464,8 +464,10 @@ class VehiculeController extends BaseController {
     /**
      * Retirer la plaque d'un véhicule
      */
-    public function retirerPlaque($id) {
+    public function retirerPlaque($id, $agentUsername = null, $dateRetrait = null, $motif = null, $observations = null) {
         try {
+            $this->db->beginTransaction();
+            
             // Vérifier que le véhicule existe
             $checkQuery = "SELECT id, plaque FROM vehicule_plaque WHERE id = :id";
             $checkStmt = $this->db->prepare($checkQuery);
@@ -473,6 +475,7 @@ class VehiculeController extends BaseController {
             $checkStmt->execute();
             
             if ($checkStmt->rowCount() === 0) {
+                $this->db->rollBack();
                 return [
                     'success' => false,
                     'message' => 'Véhicule non trouvé'
@@ -481,6 +484,24 @@ class VehiculeController extends BaseController {
             
             $vehicule = $checkStmt->fetch(PDO::FETCH_ASSOC);
             $anciennePlaque = $vehicule['plaque'];
+            
+            // Enregistrer dans l'historique avant de retirer
+            if ($anciennePlaque) {
+                // Si pas de date fournie, utiliser la date actuelle
+                $dateRetraitFinal = $dateRetrait ? $dateRetrait : date('Y-m-d H:i:s');
+                
+                $historiqueQuery = "INSERT INTO historique_retrait_plaques 
+                                  (vehicule_plaque_id, ancienne_plaque, date_retrait, motif, username, observations) 
+                                  VALUES (:vehicule_id, :plaque, :date_retrait, :motif, :agent, :observations)";
+                $historiqueStmt = $this->db->prepare($historiqueQuery);
+                $historiqueStmt->bindParam(':vehicule_id', $id);
+                $historiqueStmt->bindParam(':plaque', $anciennePlaque);
+                $historiqueStmt->bindParam(':date_retrait', $dateRetraitFinal);
+                $historiqueStmt->bindParam(':motif', $motif);
+                $historiqueStmt->bindParam(':agent', $agentUsername);
+                $historiqueStmt->bindParam(':observations', $observations);
+                $historiqueStmt->execute();
+            }
             
             // Mettre à jour les champs plaque, plaque_valide_le et plaque_expire_le à NULL
             $query = "UPDATE vehicule_plaque SET 
@@ -494,22 +515,52 @@ class VehiculeController extends BaseController {
             $stmt->bindParam(':id', $id);
             
             if ($stmt->execute()) {
+                $this->db->commit();
                 return [
                     'success' => true,
-                    'message' => 'Plaque retirée avec succès',
+                    'message' => 'Plaque retirée avec succès et enregistrée dans l\'historique',
                     'ancienne_plaque' => $anciennePlaque
                 ];
             }
             
+            $this->db->rollBack();
             return [
                 'success' => false,
                 'message' => 'Erreur lors du retrait de la plaque'
             ];
             
         } catch (Exception $e) {
+            $this->db->rollBack();
             return [
                 'success' => false,
                 'message' => 'Erreur lors du retrait de la plaque: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Récupérer l'historique des retraits de plaques pour un véhicule
+     */
+    public function getHistoriqueRetraits($vehiculeId) {
+        try {
+            $query = "SELECT * FROM historique_retraits_plaque 
+                     WHERE vehicule_plaque_id = :vehicule_id 
+                     ORDER BY date_retrait DESC";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':vehicule_id', $vehiculeId);
+            $stmt->execute();
+            
+            return [
+                'success' => true,
+                'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erreur lors de la récupération de l\'historique: ' . $e->getMessage(),
+                'data' => []
             ];
         }
     }

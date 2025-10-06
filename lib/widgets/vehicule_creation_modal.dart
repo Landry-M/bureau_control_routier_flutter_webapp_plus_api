@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/vehicule_service.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/notification_service.dart';
+import '../utils/date_time_picker_theme.dart';
 
 class VehiculeCreationModal extends StatefulWidget {
   const VehiculeCreationModal({super.key, this.initialPlaque});
@@ -707,25 +708,7 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
       initialDate: DateTime.now(),
       firstDate: DateTime(1900),
       lastDate: DateTime(2100),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: Theme.of(context).colorScheme.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: buildThemedPicker,
     );
     if (date != null) {
       controller.text = date.toIso8601String().split('T')[0];
@@ -738,50 +721,14 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
       initialDate: DateTime.now(),
       firstDate: DateTime(1900),
       lastDate: DateTime(2100),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-              primary: Theme.of(context).colorScheme.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: Theme.of(context).colorScheme.primary,
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: buildThemedPicker,
     );
     
     if (date != null) {
       final time = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.now(),
-        builder: (context, child) {
-          return Theme(
-            data: Theme.of(context).copyWith(
-              colorScheme: Theme.of(context).colorScheme.copyWith(
-                primary: Theme.of(context).colorScheme.primary,
-                onPrimary: Colors.white,
-                surface: Colors.white,
-                onSurface: Colors.black,
-              ),
-              textButtonTheme: TextButtonThemeData(
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-            child: child!,
-          );
-        },
+        builder: buildThemedPicker,
       );
       
       if (time != null) {

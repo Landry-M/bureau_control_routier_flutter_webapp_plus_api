@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../services/api_client.dart';
 import '../services/notification_service.dart';
+import 'location_picker_dialog.dart';
 
 class AssignContraventionEntrepriseModal extends StatefulWidget {
   final Map<String, dynamic> dossier;
@@ -45,7 +46,6 @@ class _AssignContraventionEntrepriseModalState extends State<AssignContravention
   final _cMontantCtrl = TextEditingController();
   final _cDescriptionCtrl = TextEditingController();
   bool _cPayee = false;
-
   bool _submitting = false;
   List<PlatformFile> _contravPhotos = [];
 
@@ -54,10 +54,23 @@ class _AssignContraventionEntrepriseModalState extends State<AssignContravention
     _cDateHeureCtrl.dispose();
     _cLieuCtrl.dispose();
     _cTypeInfractionCtrl.dispose();
+    _cDescriptionCtrl.dispose();
     _cRefLoiCtrl.dispose();
     _cMontantCtrl.dispose();
-    _cDescriptionCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectLocationOnMap() async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => const LocationPickerDialog(),
+    );
+
+    if (result != null && result['address'] != null) {
+      setState(() {
+        _cLieuCtrl.text = result['address'];
+      });
+    }
   }
 
   Future<void> _submit() async {
@@ -325,10 +338,16 @@ class _AssignContraventionEntrepriseModalState extends State<AssignContravention
                 // Lieu
                 TextFormField(
                   controller: _cLieuCtrl,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Lieu de l\'infraction',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.map),
+                      onPressed: _selectLocationOnMap,
+                      tooltip: 'Sélectionner sur la carte',
+                    ),
                   ),
+                  readOnly: false,
                 ),
                 const SizedBox(height: 12),
                 

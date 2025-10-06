@@ -8,7 +8,7 @@ class PermisTemporaireController extends BaseController {
     
     public function __construct() {
         parent::__construct();
-        $this->table = 'permis_temporaires';
+        $this->table = 'permis_temporaire';
     }
     
     /**
@@ -16,24 +16,37 @@ class PermisTemporaireController extends BaseController {
      */
     public function create($data) {
         try {
-            $query = "INSERT INTO {$this->table} (numero, particulier_id, vehicule_id, motif, date_debut, date_fin, agent_id, statut, created_at) 
-                     VALUES (:numero, :particulier_id, :vehicule_id, :motif, :date_debut, :date_fin, :agent_id, :statut, NOW())";
+            // Générer un numéro unique si non fourni
+            if (empty($data['numero'])) {
+                $data['numero'] = $this->generateUniqueNumber();
+            }
+            
+            $query = "INSERT INTO {$this->table} (cible_type, cible_id, numero, motif, date_debut, date_fin, statut, created_by, created_at, updated_at) 
+                     VALUES (:cible_type, :cible_id, :numero, :motif, :date_debut, :date_fin, :statut, :created_by, NOW(), NOW())";
             
             $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':cible_type', $data['cible_type']); // 'particulier', 'conducteur', 'vehicule_plaque'
+            $stmt->bindParam(':cible_id', $data['cible_id']);
             $stmt->bindParam(':numero', $data['numero']);
-            $stmt->bindParam(':particulier_id', $data['particulier_id']);
-            $stmt->bindParam(':vehicule_id', $data['vehicule_id']);
             $stmt->bindParam(':motif', $data['motif']);
             $stmt->bindParam(':date_debut', $data['date_debut']);
             $stmt->bindParam(':date_fin', $data['date_fin']);
-            $stmt->bindParam(':agent_id', $data['agent_id']);
-            $stmt->bindParam(':statut', $data['statut'] ?? 'actif');
+            $statut = $data['statut'] ?? 'actif';
+            $stmt->bindParam(':statut', $statut);
+            $stmt->bindParam(':created_by', $data['created_by']);
             
             if ($stmt->execute()) {
+                $permisId = $this->db->lastInsertId();
+                
+                // Générer l'URL de prévisualisation
+                $previewUrl = $this->generatePreviewUrl($permisId);
+                
                 return [
                     'success' => true,
                     'message' => 'Permis temporaire créé avec succès',
-                    'id' => $this->db->lastInsertId()
+                    'id' => $permisId,
+                    'numero' => $data['numero'],
+                    'preview_url' => $previewUrl
                 ];
             }
             
@@ -51,45 +64,111 @@ class PermisTemporaireController extends BaseController {
     }
     
     /**
-     * Generate PDF for permis temporaire
+     * Generate unique number for permis temporaire
      */
-    public function generatePdf($id) {
+    private function generateUniqueNumber() {
+        $prefix = 'PT';
+        $year = date('Y');
+        $month = date('m');
+        
+        // Compter les permis existants ce mois-ci
+        $query = "SELECT COUNT(*) as count FROM {$this->table} 
+                  WHERE numero LIKE :pattern 
+                  AND YEAR(created_at) = :year 
+                  AND MONTH(created_at) = :month";
+        
+        $stmt = $this->db->prepare($query);
+        $pattern = $prefix . $year . $month . '%';
+        $stmt->bindParam(':pattern', $pattern);
+        $stmt->bindParam(':year', $year);
+        $stmt->bindParam(':month', $month);
+        $stmt->execute();
+        
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $count = ($result['count'] ?? 0) + 1;
+        
+        return $prefix . $year . $month . str_pad($count, 4, '0', STR_PAD_LEFT);
+    }
+    
+    /**
+     * Generate preview URL for permis temporaire
+     */
+    private function generatePreviewUrl($permisId) {
+        // URL vers le fichier de prévisualisation
+        return "http://localhost:8000/permis_temporaire_display.php?id={$permisId}";
+    }
+    
+    /**
+     * Save PDF file to server
+     */
+    public function savePdf($permisId, $pdfContent) {
         try {
-            $query = "SELECT pt.*, 
-                     p.nom as particulier_nom, p.prenom as particulier_prenom, p.numero_carte_identite,
-                     v.plaque as vehicule_plaque, v.marque as vehicule_marque, v.modele as vehicule_modele,
-                     u.nom as agent_nom
-                     FROM {$this->table} pt
-                     LEFT JOIN particuliers p ON pt.particulier_id = p.id
-                     LEFT JOIN vehicules v ON pt.vehicule_id = v.id
-                     LEFT JOIN users u ON pt.agent_id = u.id
-                     WHERE pt.id = :id LIMIT 1";
+            // Créer le dossier s'il n'existe pas
+            $uploadDir = __DIR__ . '/../uploads/permis_temporaire/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
             
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':id', $id);
-            $stmt->execute();
+            // Générer le nom du fichier
+            $filename = "permis_temporaire_{$permisId}_" . date('Y-m-d_H-i-s') . '.pdf';
+            $filepath = $uploadDir . $filename;
+            $relativePath = "/api/uploads/permis_temporaire/{$filename}";
             
-            if ($stmt->rowCount() > 0) {
-                $data = $stmt->fetch(PDO::FETCH_ASSOC);
+            // Sauvegarder le fichier
+            if (file_put_contents($filepath, $pdfContent) !== false) {
+                // Mettre à jour la base de données avec le chemin du PDF
+                $query = "UPDATE {$this->table} SET pdf_path = :pdf_path, updated_at = NOW() WHERE id = :id";
+                $stmt = $this->db->prepare($query);
+                $stmt->bindParam(':pdf_path', $relativePath);
+                $stmt->bindParam(':id', $permisId);
+                $stmt->execute();
                 
-                // Here you would implement PDF generation
-                // For now, return a placeholder
                 return [
                     'success' => true,
-                    'message' => 'PDF généré avec succès',
-                    'pdf_url' => "/api/permis-temporaire/{$id}/pdf",
-                    'data' => $data
+                    'message' => 'PDF sauvegardé avec succès',
+                    'pdf_path' => $relativePath,
+                    'filename' => $filename
                 ];
             } else {
                 return [
                     'success' => false,
-                    'message' => 'Permis temporaire non trouvé'
+                    'message' => 'Erreur lors de la sauvegarde du fichier'
                 ];
             }
+            
         } catch (Exception $e) {
             return [
                 'success' => false,
-                'message' => 'Erreur lors de la génération du PDF: ' . $e->getMessage()
+                'message' => 'Erreur lors de la sauvegarde: ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Get permis temporaires by particulier
+     */
+    public function getByParticulier($particulierId) {
+        try {
+            $query = "SELECT * FROM {$this->table} 
+                      WHERE cible_type = 'particulier' AND cible_id = :particulier_id 
+                      ORDER BY created_at DESC";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':particulier_id', $particulierId, PDO::PARAM_INT);
+            $stmt->execute();
+            
+            $permis = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return [
+                'success' => true,
+                'data' => $permis,
+                'count' => count($permis)
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erreur lors de la récupération: ' . $e->getMessage()
             ];
         }
     }

@@ -23,11 +23,32 @@ require_once __DIR__ . '/../controllers/AccidentController.php';
 require_once __DIR__ . '/../controllers/AvisRechercheController.php';
 require_once __DIR__ . '/../controllers/PermisTemporaireController.php';
 require_once __DIR__ . '/../controllers/ArrestationController.php';
+require_once __DIR__ . '/../controllers/HistoriqueRetraitPlaqueController.php';
+require_once __DIR__ . '/../controllers/ParticulierVehiculeController.php';
+require_once __DIR__ . '/../controllers/EntrepriseVehiculeController.php';
 require_once __DIR__ . '/../config/database.php';
 
 function getDbConnection() {
     $database = new Database();
     return $database->getConnection();
+}
+
+// Fonction pour générer un numéro de plaque temporaire au format PT-XXXXXX
+function generatePlaqueTemporaireNumber() {
+    $pdo = getDbConnection();
+    
+    // Compter les plaques temporaires existantes cette année
+    $year = date('Y');
+    $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM permis_temporaire WHERE numero LIKE :pattern AND YEAR(created_at) = :year");
+    $pattern = 'PT-%';
+    $stmt->bindParam(':pattern', $pattern);
+    $stmt->bindParam(':year', $year);
+    $stmt->execute();
+    
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    $count = ($result['count'] ?? 0) + 1;
+    
+    return 'PT-' . str_pad($count, 6, '0', STR_PAD_LEFT);
 }
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -560,8 +581,19 @@ switch (true) {
                 throw new Exception('ID véhicule invalide');
             }
 
+            // Lire les données JSON du body
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            
+            $username = $data['username'] ?? $_POST['username'] ?? null;
+            $dateRetrait = $data['date_retrait'] ?? $_POST['date_retrait'] ?? null;
+            $motif = $data['motif'] ?? $_POST['motif'] ?? null;
+            $observations = $data['observations'] ?? $_POST['observations'] ?? null;
+
+            // Log pour déboguer
+            error_log("Retrait plaque - Username: " . ($username ?? 'NULL') . ", Motif: " . ($motif ?? 'NULL') . ", Observations: " . ($observations ?? 'NULL'));
+
             $vehiculeController = new VehiculeController();
-            $result = $vehiculeController->retirerPlaque((int)$vehiculeId);
+            $result = $vehiculeController->retirerPlaque((int)$vehiculeId, $username, $dateRetrait, $motif, $observations);
             
             if (!$result['success']) {
                 throw new Exception($result['message']);
@@ -569,12 +601,13 @@ switch (true) {
 
             // Log de l'activité
             LogController::record(
-                $_POST['username'] ?? null,
+                $username,
                 'Retrait de plaque',
                 [
                     'vehicule_id' => $vehiculeId,
                     'ancienne_plaque' => $result['ancienne_plaque'] ?? null,
-                    'action' => 'retrait_plaque'
+                    'action' => 'retrait_plaque',
+                    'motif' => $motif
                 ],
                 $_SERVER['REMOTE_ADDR'] ?? null,
                 $_SERVER['HTTP_USER_AGENT'] ?? null
@@ -593,6 +626,191 @@ switch (true) {
             ]);
         }
         break;
+    
+    // Récupérer l'historique des retraits de plaques pour un véhicule
+    case $method === 'GET' && path_match('/vehicule/{id}/historique-retraits', $path, $p):
+        try {
+            $vehiculeId = $p[0] ?? null;
+            if (!$vehiculeId || !is_numeric($vehiculeId)) {
+                throw new Exception('ID véhicule invalide');
+            }
+
+            $historiqueController = new HistoriqueRetraitPlaqueController();
+            $result = $historiqueController->getByVehiculeId((int)$vehiculeId);
+            
+            // Log de la consultation
+            LogController::record(
+                $_GET['username'] ?? 'system',
+                'Consultation historique retraits plaque',
+                [
+                    'vehicule_id' => $vehiculeId,
+                    'total_retraits' => count($result['data'] ?? [])
+                ],
+                $_SERVER['REMOTE_ADDR'] ?? null,
+                $_SERVER['HTTP_USER_AGENT'] ?? null
+            );
+
+            echo json_encode($result);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'data' => []
+            ]);
+        }
+        break;
+    
+    // Association particulier-véhicule
+    case $method === 'POST' && $path === '/particulier-vehicule/associer':
+        try {
+            // Lire les données JSON du body
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            
+            $particulierId = $data['particulier_id'] ?? null;
+            $vehiculePlaqueId = $data['vehicule_plaque_id'] ?? null;
+            $role = $data['role'] ?? 'proprietaire';
+            $dateAssoc = $data['date_assoc'] ?? null;
+            $notes = $data['notes'] ?? null;
+            $username = $data['username'] ?? null;
+            $force = $data['force'] ?? false; // Nouveau paramètre pour forcer l'association
+            
+            if (!$particulierId || !$vehiculePlaqueId) {
+                throw new Exception('ID particulier et ID véhicule requis');
+            }
+            
+            $controller = new ParticulierVehiculeController();
+            $result = $controller->associer(
+                $particulierId,
+                $vehiculePlaqueId,
+                $role,
+                $dateAssoc,
+                $notes,
+                $username,
+                $force
+            );
+            
+            // Si requiresConfirmation, retourner la réponse sans erreur
+            if (isset($result['requiresConfirmation']) && $result['requiresConfirmation']) {
+                echo json_encode($result);
+                break;
+            }
+            
+            if (!$result['success']) {
+                throw new Exception($result['message']);
+            }
+            
+            // Log de l'activité
+            LogController::record(
+                $username,
+                'Association particulier-véhicule',
+                [
+                    'particulier_id' => $particulierId,
+                    'vehicule_plaque_id' => $vehiculePlaqueId,
+                    'role' => $role,
+                    'forced' => $force,
+                    'action' => 'associer'
+                ],
+                $_SERVER['REMOTE_ADDR'] ?? null,
+                $_SERVER['HTTP_USER_AGENT'] ?? null
+            );
+            
+            echo json_encode($result);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+        break;
+    
+    // Association entreprise-véhicule
+    case $method === 'POST' && $path === '/entreprise-vehicule/associer':
+        try {
+            // Lire les données JSON du body
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            
+            $entrepriseId = $data['entreprise_id'] ?? null;
+            $vehiculePlaqueId = $data['vehicule_plaque_id'] ?? null;
+            $dateAssoc = $data['date_assoc'] ?? null;
+            $notes = $data['notes'] ?? null;
+            $username = $data['username'] ?? null;
+            $force = $data['force'] ?? false; // Nouveau paramètre pour forcer l'association
+            
+            if (!$entrepriseId || !$vehiculePlaqueId) {
+                throw new Exception('ID entreprise et ID véhicule requis');
+            }
+            
+            $controller = new EntrepriseVehiculeController();
+            $result = $controller->associer(
+                $entrepriseId,
+                $vehiculePlaqueId,
+                $dateAssoc,
+                $notes,
+                $username,
+                $force
+            );
+            
+            // Si requiresConfirmation, retourner la réponse sans erreur
+            if (isset($result['requiresConfirmation']) && $result['requiresConfirmation']) {
+                echo json_encode($result);
+                break;
+            }
+            
+            if (!$result['success']) {
+                throw new Exception($result['message']);
+            }
+            
+            // Log de l'activité
+            LogController::record(
+                $username,
+                'Association entreprise-véhicule',
+                [
+                    'entreprise_id' => $entrepriseId,
+                    'vehicule_plaque_id' => $vehiculePlaqueId,
+                    'forced' => $force,
+                    'action' => 'associer'
+                ],
+                $_SERVER['REMOTE_ADDR'] ?? null,
+                $_SERVER['HTTP_USER_AGENT'] ?? null
+            );
+            
+            echo json_encode($result);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+        break;
+    
+    // Récupérer le propriétaire actuel d'un véhicule
+    case $method === 'GET' && path_match('/vehicule/{id}/current-owner', $path, $p):
+        try {
+            $vehiculeId = $p[0] ?? null;
+            if (!$vehiculeId || !is_numeric($vehiculeId)) {
+                throw new Exception('ID véhicule invalide');
+            }
+            
+            $controller = new ParticulierVehiculeController();
+            $result = $controller->getCurrentOwner((int)$vehiculeId);
+            
+            if (!$result['success']) {
+                throw new Exception($result['message']);
+            }
+            
+            echo json_encode($result);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+        break;
+    
     case $method === 'POST' && path_match('/vehicule/{id}/retirer-circulation', $path, $p):
         try {
             $vehiculeId = $p[0] ?? null;
@@ -739,7 +957,7 @@ switch (true) {
         }
         break;
 
-    // Particulier
+    // Particulier - Vérifier l'unicité du nom
     case $method === 'GET' && $path === '/check-particulier-exists':
         try {
             $nom = $_GET['nom'] ?? '';
@@ -748,12 +966,10 @@ switch (true) {
                 break;
             }
             
-            $pdo = getDbConnection();
-            $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM particuliers WHERE LOWER(nom) = LOWER(?)");
-            $stmt->execute([$nom]);
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $particulierController = new ParticulierController();
+            $exists = $particulierController->nomExists($nom);
             
-            echo json_encode(['exists' => $result['count'] > 0]);
+            echo json_encode(['exists' => $exists]);
         } catch (Exception $e) {
             http_response_code(500);
             echo json_encode(['error' => 'Erreur lors de la vérification: ' . $e->getMessage()]);
@@ -823,7 +1039,7 @@ switch (true) {
                     $filePath = $uploadDir . $fileName;
                     
                     if (move_uploaded_file($_FILES[$field]['tmp_name'], $filePath)) {
-                        $uploadedFiles[$field] = 'uploads/particuliers/' . $fileName;
+                        $uploadedFiles[$field] = '/api/uploads/particuliers/' . $fileName;
                         
                         // Mettre à jour la base de données avec le chemin du fichier
                         $updateStmt = $pdo->prepare("UPDATE particuliers SET $field = ? WHERE id = ?");
@@ -942,7 +1158,7 @@ switch (true) {
                         $filePath = $uploadDir . $fileName;
                         
                         if (move_uploaded_file($_FILES[$field]['tmp_name'], $filePath)) {
-                            $uploadedFiles[$field] = 'uploads/particuliers/' . $fileName;
+                            $uploadedFiles[$field] = '/api/uploads/particuliers/' . $fileName;
                             
                             $updateStmt = $pdo->prepare("UPDATE particuliers SET $field = ? WHERE id = ?");
                             $updateStmt->execute([$uploadedFiles[$field], $particulierId]);
@@ -962,7 +1178,7 @@ switch (true) {
                                 $filePath = $contravUploadDir . $fileName;
                                 
                                 if (move_uploaded_file($contravPhotos['tmp_name'][$i], $filePath)) {
-                                    $uploadedContravPhotos[] = 'uploads/contraventions/' . $fileName;
+                                    $uploadedContravPhotos[] = '/api/uploads/contraventions/' . $fileName;
                                 }
                             }
                         }
@@ -1001,8 +1217,106 @@ switch (true) {
     case $method === 'POST' && path_match('/particulier/{id}/update', $path, $p):
         json_ok_logged('POST /particulier/{id}/update', ['id' => $p[0] ?? null]);
         break;
+    
+    // Récupérer un particulier par ID
     case $method === 'GET' && path_match('/particulier/{id}', $path, $p):
-        json_ok_logged('GET /particulier/{id}', ['id' => $p[0] ?? null]);
+        try {
+            $particulierId = $p[0];
+            
+            if (!is_numeric($particulierId)) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'ID particulier invalide'
+                ]);
+                break;
+            }
+            
+            $particulierController = new ParticulierController();
+            $result = $particulierController->getById($particulierId);
+            
+            if ($result['success']) {
+                // Log de la consultation
+                LogController::record(
+                    $_GET['username'] ?? 'system',
+                    'Consultation particulier',
+                    [
+                        'particulier_id' => $particulierId,
+                        'endpoint' => 'GET /particulier/' . $particulierId
+                    ],
+                    $_SERVER['REMOTE_ADDR'] ?? null,
+                    $_SERVER['HTTP_USER_AGENT'] ?? null
+                );
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $result['data']
+                ]);
+            } else {
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'message' => $result['message']
+                ]);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération du particulier: ' . $e->getMessage()
+            ]);
+        }
+        break;
+    
+    // Récupérer les véhicules d'un particulier
+    case $method === 'GET' && path_match('/particulier/{id}/vehicules', $path, $p):
+        try {
+            $particulierId = $p[0];
+            
+            if (!is_numeric($particulierId)) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'ID particulier invalide'
+                ]);
+                break;
+            }
+            
+            $controller = new ParticulierVehiculeController();
+            $result = $controller->getVehiculesByParticulier($particulierId);
+            
+            if ($result['success']) {
+                // Log de la consultation
+                LogController::record(
+                    $_GET['username'] ?? 'system',
+                    'Consultation véhicules particulier',
+                    [
+                        'particulier_id' => $particulierId,
+                        'endpoint' => 'GET /particulier/' . $particulierId . '/vehicules',
+                        'nb_vehicules' => count($result['data'] ?? [])
+                    ],
+                    $_SERVER['REMOTE_ADDR'] ?? null,
+                    $_SERVER['HTTP_USER_AGENT'] ?? null
+                );
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $result['data']
+                ]);
+            } else {
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'message' => $result['message']
+                ]);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des véhicules: ' . $e->getMessage()
+            ]);
+        }
         break;
 
     // Liste des particuliers avec pagination
@@ -1184,6 +1498,111 @@ switch (true) {
     case $method === 'GET' && path_match('/entreprise/{id}', $path, $p):
         json_ok_logged('GET /entreprise/{id}', ['id' => $p[0] ?? null]);
         break;
+    
+    // Récupérer le propriétaire entreprise d'un véhicule
+    case $method === 'GET' && path_match('/vehicule/{id}/proprietaire-entreprise', $path, $p):
+        try {
+            $vehiculeId = $p[0];
+            
+            if (!is_numeric($vehiculeId)) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'ID véhicule invalide'
+                ]);
+                break;
+            }
+            
+            $controller = new EntrepriseVehiculeController();
+            $result = $controller->getEntreprisesByVehicule($vehiculeId);
+            
+            if ($result['success']) {
+                // Prendre la plus récente (première dans la liste)
+                $entreprise = !empty($result['data']) ? $result['data'][0] : null;
+                
+                // Log de la consultation
+                LogController::record(
+                    $_GET['username'] ?? 'system',
+                    'Consultation propriétaire entreprise véhicule',
+                    [
+                        'vehicule_id' => $vehiculeId,
+                        'endpoint' => 'GET /vehicule/' . $vehiculeId . '/proprietaire-entreprise',
+                        'has_entreprise' => $entreprise !== null
+                    ],
+                    $_SERVER['REMOTE_ADDR'] ?? null,
+                    $_SERVER['HTTP_USER_AGENT'] ?? null
+                );
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $entreprise
+                ]);
+            } else {
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'message' => $result['message']
+                ]);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération du propriétaire: ' . $e->getMessage()
+            ]);
+        }
+        break;
+    
+    // Récupérer les véhicules d'une entreprise
+    case $method === 'GET' && path_match('/entreprise/{id}/vehicules', $path, $p):
+        try {
+            $entrepriseId = $p[0];
+            
+            if (!is_numeric($entrepriseId)) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'ID entreprise invalide'
+                ]);
+                break;
+            }
+            
+            $controller = new EntrepriseVehiculeController();
+            $result = $controller->getVehiculesByEntreprise($entrepriseId);
+            
+            if ($result['success']) {
+                // Log de la consultation
+                LogController::record(
+                    $_GET['username'] ?? 'system',
+                    'Consultation véhicules entreprise',
+                    [
+                        'entreprise_id' => $entrepriseId,
+                        'endpoint' => 'GET /entreprise/' . $entrepriseId . '/vehicules',
+                        'nb_vehicules' => count($result['data'] ?? [])
+                    ],
+                    $_SERVER['REMOTE_ADDR'] ?? null,
+                    $_SERVER['HTTP_USER_AGENT'] ?? null
+                );
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $result['data']
+                ]);
+            } else {
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'message' => $result['message']
+                ]);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des véhicules: ' . $e->getMessage()
+            ]);
+        }
+        break;
 
     // Contravention
     case $method === 'POST' && $path === '/contravention/create':
@@ -1208,7 +1627,7 @@ switch (true) {
                             $filePath = $uploadDir . $fileName;
                             
                             if (move_uploaded_file($_FILES['photos']['tmp_name'][$i], $filePath)) {
-                                $uploadedPhotos[] = 'uploads/contraventions/' . $fileName;
+                                $uploadedPhotos[] = '/api/uploads/contraventions/' . $fileName;
                             }
                         }
                     }
@@ -1699,6 +2118,128 @@ switch (true) {
         }
         break;
     
+    // Get avis de recherche for a specific particulier
+    case $method === 'GET' && path_match('/avis-recherche/particulier/{id}', $path, $p):
+        try {
+            if (!isset($p[0])) {
+                throw new Exception('ID particulier manquant');
+            }
+            
+            require_once __DIR__ . '/../controllers/AvisRechercheController.php';
+            $particulierId = intval($p[0]);
+            $controller = new AvisRechercheController();
+            $result = $controller->getByParticulier($particulierId);
+            
+            if ($result['success']) {
+                // Log de la consultation
+                LogController::record(
+                    $_GET['username'] ?? 'system',
+                    'Consultation avis de recherche particulier',
+                    [
+                        'particulier_id' => $particulierId,
+                        'total_avis' => count($result['data'] ?? [])
+                    ],
+                    $_SERVER['REMOTE_ADDR'] ?? null,
+                    $_SERVER['HTTP_USER_AGENT'] ?? null
+                );
+                
+                echo json_encode($result);
+            } else {
+                http_response_code(500);
+                echo json_encode($result);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des avis de recherche: ' . $e->getMessage()
+            ]);
+        }
+        break;
+    
+    // Get avis de recherche for a specific vehicule
+    case $method === 'GET' && path_match('/avis-recherche/vehicule/{id}', $path, $p):
+        try {
+            if (!isset($p[0])) {
+                throw new Exception('ID véhicule manquant');
+            }
+            
+            require_once __DIR__ . '/../controllers/AvisRechercheController.php';
+            $vehiculeId = intval($p[0]);
+            $controller = new AvisRechercheController();
+            $result = $controller->getByVehicule($vehiculeId);
+            
+            if ($result['success']) {
+                // Log de la consultation
+                LogController::record(
+                    $_GET['username'] ?? 'system',
+                    'Consultation avis de recherche véhicule',
+                    [
+                        'vehicule_id' => $vehiculeId,
+                        'total_avis' => count($result['data'] ?? [])
+                    ],
+                    $_SERVER['REMOTE_ADDR'] ?? null,
+                    $_SERVER['HTTP_USER_AGENT'] ?? null
+                );
+                
+                echo json_encode($result);
+            } else {
+                http_response_code(500);
+                echo json_encode($result);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des avis de recherche: ' . $e->getMessage()
+            ]);
+        }
+        break;
+    
+    // Update avis de recherche status
+    case $method === 'POST' && path_match('/avis-recherche/{id}/update-status', $path, $p):
+        try {
+            if (!isset($p[0])) {
+                throw new Exception('ID avis de recherche manquant');
+            }
+            
+            $data = json_decode(file_get_contents('php://input'), true);
+            if (!isset($data['statut'])) {
+                throw new Exception('Statut manquant');
+            }
+            
+            require_once __DIR__ . '/../controllers/AvisRechercheController.php';
+            $avisId = intval($p[0]);
+            $controller = new AvisRechercheController();
+            $result = $controller->updateStatus($avisId, $data['statut']);
+            
+            if ($result['success']) {
+                // Log de la mise à jour
+                LogController::record(
+                    $data['username'] ?? 'system',
+                    'Mise à jour statut avis de recherche',
+                    [
+                        'avis_id' => $avisId,
+                        'nouveau_statut' => $data['statut']
+                    ],
+                    $_SERVER['REMOTE_ADDR'] ?? null,
+                    $_SERVER['HTTP_USER_AGENT'] ?? null
+                );
+                
+                echo json_encode($result);
+            } else {
+                http_response_code(500);
+                echo json_encode($result);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur lors de la mise à jour du statut: ' . $e->getMessage()
+            ]);
+        }
+        break;
+    
     // Get contraventions for a specific entreprise
     case $method === 'GET' && path_match('/contraventions/entreprise/{id}', $path, $p):
         try {
@@ -1783,10 +2324,7 @@ switch (true) {
         json_ok_logged('GET /accident/{id}', ['id' => $p[0] ?? null]);
         break;
 
-    // Avis de recherche
-    case $method === 'POST' && $path === '/avis-recherche/create':
-        json_ok_logged('POST /avis-recherche/create');
-        break;
+    // Avis de recherche (endpoints de test supprimés - voir implémentation complète plus bas)
     case $method === 'POST' && path_match('/avis-recherche/{id}/close', $path, $p):
         json_ok_logged('POST /avis-recherche/{id}/close', ['id' => $p[0] ?? null]);
         break;
@@ -1794,18 +2332,12 @@ switch (true) {
         json_ok_logged('GET /avis-recherche/{id}', ['id' => $p[0] ?? null]);
         break;
 
-    // Permis temporaire
-    case $method === 'POST' && $path === '/permis-temporaire/create':
-        json_ok_logged('POST /permis-temporaire/create');
-        break;
+    // Permis temporaire (endpoint de test supprimé - voir implémentation complète plus bas)
     case $method === 'GET' && path_match('/permis-temporaire/{id}/pdf', $path, $p):
         json_ok_logged('GET /permis-temporaire/{id}/pdf', ['id' => $p[0] ?? null]);
         break;
 
-    // Arrestation
-    case $method === 'POST' && $path === '/arrestation/create':
-        json_ok_logged('POST /arrestation/create');
-        break;
+    // Arrestation (endpoints de test supprimés - voir implémentation complète plus bas)
     case $method === 'POST' && path_match('/arrestation/{id}/release', $path, $p):
         json_ok_logged('POST /arrestation/{id}/release', ['id' => $p[0] ?? null]);
         break;
@@ -2153,6 +2685,742 @@ switch (true) {
             echo json_encode([
                 'success' => false,
                 'message' => $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Création conducteur et véhicule
+    case $method === 'POST' && $path === '/conducteur-vehicule/create':
+        try {
+            require_once __DIR__ . '/../controllers/ConducteurVehiculeController.php';
+            
+            $conducteurController = new ConducteurVehiculeController();
+            $result = $conducteurController->createWithDetails($_POST, $_FILES);
+            
+            if ($result['success']) {
+                echo json_encode($result);
+            } else {
+                http_response_code(400);
+                echo json_encode($result);
+            }
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Liste des conducteurs
+    case $method === 'GET' && $path === '/conducteurs':
+        try {
+            require_once __DIR__ . '/../controllers/ConducteurVehiculeController.php';
+            
+            $page = (int)($_GET['page'] ?? 1);
+            $limit = (int)($_GET['limit'] ?? 20);
+            $offset = ($page - 1) * $limit;
+            
+            $conducteurController = new ConducteurVehiculeController();
+            $result = $conducteurController->getAll($limit, $offset);
+            
+            if ($result['success']) {
+                echo json_encode($result);
+            } else {
+                http_response_code(500);
+                echo json_encode($result);
+            }
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Recherche globale
+    case $method === 'GET' && $path === '/search/global':
+        try {
+            require_once __DIR__ . '/../controllers/GlobalSearchController.php';
+            
+            $query = $_GET['q'] ?? '';
+            $limit = (int)($_GET['limit'] ?? 50);
+            $username = $_GET['username'] ?? 'system';
+            
+            $controller = new GlobalSearchController();
+            $result = $controller->globalSearch($query, $limit);
+            
+            // Logging de la recherche
+            LogController::record(
+                $username,
+                'Recherche globale',
+                json_encode([
+                    'query' => $query,
+                    'results_count' => $result['success'] ? $result['total'] : 0,
+                    'action' => 'global_search'
+                ]),
+                $_SERVER['REMOTE_ADDR'] ?? '',
+                $_SERVER['HTTP_USER_AGENT'] ?? ''
+            );
+            
+            echo json_encode($result);
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Détails d'un élément trouvé par la recherche globale
+    case $method === 'GET' && path_match('/search/details/{type}/{id}', $path, $params):
+        try {
+            require_once __DIR__ . '/../controllers/GlobalSearchController.php';
+            
+            $type = $params[0];
+            $id = (int)$params[1];
+            $username = $_GET['username'] ?? 'system';
+            
+            $controller = new GlobalSearchController();
+            $result = $controller->getDetails($type, $id);
+            
+            // Logging de la consultation
+            LogController::record(
+                $username,
+                'Consultation détails recherche',
+                json_encode([
+                    'type' => $type,
+                    'id' => $id,
+                    'action' => 'view_search_details'
+                ]),
+                $_SERVER['REMOTE_ADDR'] ?? '',
+                $_SERVER['HTTP_USER_AGENT'] ?? ''
+            );
+            
+            echo json_encode($result);
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Création d'arrestation
+    case $method === 'POST' && $path === '/arrestation/create':
+        try {
+            require_once __DIR__ . '/../controllers/ArrestationController.php';
+            require_once __DIR__ . '/../controllers/LogController.php';
+            
+            $data = json_decode(file_get_contents('php://input'), true);
+            $username = $data['username'] ?? 'system';
+            
+            $controller = new ArrestationController();
+            $result = $controller->create($data);
+            
+            // Logging de la création
+            if ($result['success']) {
+                LogController::record(
+                    $username,
+                    'Création arrestation',
+                    json_encode([
+                        'particulier_id' => $data['particulier_id'],
+                        'arrestation_id' => $result['id'],
+                        'motif' => $data['motif'],
+                        'lieu' => $data['lieu'],
+                        'date_arrestation' => $data['date_arrestation'],
+                        'est_libere' => !empty($data['date_sortie_prison']),
+                        'action' => 'create_arrestation'
+                    ]),
+                    $_SERVER['REMOTE_ADDR'] ?? '',
+                    $_SERVER['HTTP_USER_AGENT'] ?? ''
+                );
+            }
+            
+            echo json_encode($result);
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Mise à jour du statut de libération
+    case $method === 'POST' && path_match('/arrestation/{id}/update-status', $path, $params):
+        try {
+            require_once __DIR__ . '/../controllers/ArrestationController.php';
+            require_once __DIR__ . '/../controllers/LogController.php';
+            
+            $arrestationId = (int)$params[0];
+            $data = json_decode(file_get_contents('php://input'), true);
+            $username = $data['username'] ?? 'system';
+            
+            $dateSortie = $data['est_libere'] ? ($data['date_sortie'] ?? date('Y-m-d H:i:s')) : null;
+            
+            $controller = new ArrestationController();
+            $result = $controller->updateLiberationStatus($arrestationId, $dateSortie);
+            
+            // Logging de la mise à jour
+            if ($result['success']) {
+                LogController::record(
+                    $username,
+                    'Mise à jour statut arrestation',
+                    json_encode([
+                        'arrestation_id' => $arrestationId,
+                        'nouveau_statut' => $data['est_libere'] ? 'libere' : 'en_detention',
+                        'date_sortie' => $dateSortie,
+                        'action' => 'update_arrestation_status'
+                    ]),
+                    $_SERVER['REMOTE_ADDR'] ?? '',
+                    $_SERVER['HTTP_USER_AGENT'] ?? ''
+                );
+            }
+            
+            echo json_encode($result);
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Création d'avis de recherche
+    case $method === 'POST' && $path === '/avis-recherche/create':
+        try {
+            require_once __DIR__ . '/../controllers/AvisRechercheController.php';
+            require_once __DIR__ . '/../controllers/LogController.php';
+            
+            $data = json_decode(file_get_contents('php://input'), true);
+            $username = $data['username'] ?? 'system';
+            
+            $controller = new AvisRechercheController();
+            $result = $controller->create($data);
+            
+            // Logging de la création
+            if ($result['success']) {
+                LogController::record(
+                    $username,
+                    'Émission avis de recherche',
+                    json_encode([
+                        'cible_type' => $data['cible_type'],
+                        'cible_id' => $data['cible_id'],
+                        'motif' => $data['motif'],
+                        'niveau' => $data['niveau'] ?? 'moyen',
+                        'avis_id' => $result['id'],
+                        'action' => 'create_avis_recherche'
+                    ]),
+                    $_SERVER['REMOTE_ADDR'] ?? '',
+                    $_SERVER['HTTP_USER_AGENT'] ?? ''
+                );
+            }
+            
+            echo json_encode($result);
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Création de permis temporaire
+    case $method === 'POST' && $path === '/permis-temporaire/create':
+        try {
+            require_once __DIR__ . '/../controllers/PermisTemporaireController.php';
+            require_once __DIR__ . '/../controllers/LogController.php';
+            
+            $data = json_decode(file_get_contents('php://input'), true);
+            $username = $data['username'] ?? 'system';
+            
+            $controller = new PermisTemporaireController();
+            $result = $controller->create($data);
+            
+            // Logging de la création
+            if ($result['success']) {
+                LogController::record(
+                    $username,
+                    'Création permis temporaire',
+                    json_encode([
+                        'cible_type' => $data['cible_type'],
+                        'cible_id' => $data['cible_id'],
+                        'numero' => $result['numero'],
+                        'motif' => $data['motif'],
+                        'date_debut' => $data['date_debut'],
+                        'date_fin' => $data['date_fin'],
+                        'permis_id' => $result['id'],
+                        'action' => 'create_permis_temporaire'
+                    ]),
+                    $_SERVER['REMOTE_ADDR'] ?? '',
+                    $_SERVER['HTTP_USER_AGENT'] ?? ''
+                );
+            }
+            
+            echo json_encode($result);
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Sauvegarde PDF permis temporaire
+    case $method === 'POST' && path_match('/permis-temporaire/{id}/save-pdf', $path, $p):
+        try {
+            require_once __DIR__ . '/../controllers/PermisTemporaireController.php';
+            
+            $permisId = (int)($p[0] ?? 0);
+            
+            if ($permisId <= 0) {
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'error' => 'ID permis invalide']);
+                break;
+            }
+            
+            // Debug des données reçues
+            error_log("DEBUG: _FILES = " . print_r($_FILES, true));
+            error_log("DEBUG: _POST = " . print_r($_POST, true));
+            
+            // Récupérer le fichier PDF uploadé
+            if (!isset($_FILES['pdf'])) {
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'error' => 'Aucun fichier PDF reçu', 'debug' => $_FILES]);
+                break;
+            }
+            
+            if ($_FILES['pdf']['error'] !== UPLOAD_ERR_OK) {
+                $errorMessages = [
+                    UPLOAD_ERR_INI_SIZE => 'Le fichier dépasse la taille maximale autorisée par PHP',
+                    UPLOAD_ERR_FORM_SIZE => 'Le fichier dépasse la taille maximale du formulaire',
+                    UPLOAD_ERR_PARTIAL => 'Le fichier n\'a été que partiellement téléchargé',
+                    UPLOAD_ERR_NO_FILE => 'Aucun fichier n\'a été téléchargé',
+                    UPLOAD_ERR_NO_TMP_DIR => 'Dossier temporaire manquant',
+                    UPLOAD_ERR_CANT_WRITE => 'Échec de l\'écriture du fichier sur le disque',
+                    UPLOAD_ERR_EXTENSION => 'Une extension PHP a arrêté le téléchargement'
+                ];
+                
+                $errorCode = $_FILES['pdf']['error'];
+                $errorMessage = $errorMessages[$errorCode] ?? "Erreur inconnue ($errorCode)";
+                
+                http_response_code(400);
+                echo json_encode([
+                    'ok' => false, 
+                    'error' => 'Erreur d\'upload: ' . $errorMessage,
+                    'error_code' => $errorCode,
+                    'file_info' => $_FILES['pdf']
+                ]);
+                break;
+            }
+            
+            $pdfContent = file_get_contents($_FILES['pdf']['tmp_name']);
+            
+            $controller = new PermisTemporaireController();
+            $result = $controller->savePdf($permisId, $pdfContent);
+            
+            if ($result['success']) {
+                echo json_encode(['ok' => true, 'message' => $result['message'], 'pdf_path' => $result['pdf_path']]);
+            } else {
+                http_response_code(500);
+                echo json_encode(['ok' => false, 'error' => $result['message']]);
+            }
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
+        }
+        break;
+
+    // Récupération des permis temporaires d'un particulier
+    case $method === 'GET' && path_match('/permis-temporaires/particulier/{id}', $path, $p):
+        try {
+            require_once __DIR__ . '/../controllers/PermisTemporaireController.php';
+            require_once __DIR__ . '/../controllers/LogController.php';
+            
+            $particulierId = (int)($p[0] ?? 0);
+            $username = $_GET['username'] ?? 'system';
+            
+            if ($particulierId <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'ID particulier invalide']);
+                break;
+            }
+            
+            $controller = new PermisTemporaireController();
+            $result = $controller->getByParticulier($particulierId);
+            
+            // Logging de la consultation
+            LogController::record(
+                $username,
+                'Consultation permis temporaires particulier',
+                json_encode([
+                    'particulier_id' => $particulierId,
+                    'count' => count($result['data'] ?? []),
+                    'endpoint' => "GET /permis-temporaires/particulier/{$particulierId}"
+                ]),
+                $_SERVER['REMOTE_ADDR'] ?? '',
+                $_SERVER['HTTP_USER_AGENT'] ?? ''
+            );
+            
+            echo json_encode($result);
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Création d'une plaque temporaire
+    case $method === 'POST' && path_match('/plaque-temporaire/create', $path, $p):
+        try {
+            require_once __DIR__ . '/../controllers/PermisTemporaireController.php';
+            require_once __DIR__ . '/../controllers/LogController.php';
+            
+            $data = json_decode(file_get_contents('php://input'), true);
+            
+            if (!$data) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'Données JSON invalides']);
+                break;
+            }
+            
+            // Validation des champs requis
+            $requiredFields = ['cible_type', 'cible_id', 'date_debut', 'date_fin'];
+            foreach ($requiredFields as $field) {
+                if (!isset($data[$field]) || empty($data[$field])) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'message' => "Le champ '$field' est requis"]);
+                    break 2;
+                }
+            }
+            
+            // Générer un numéro de plaque temporaire au format PT-XXXXXX
+            $data['numero'] = generatePlaqueTemporaireNumber();
+            $data['created_by'] = $_SESSION['user_id'] ?? 1; // ID de l'utilisateur connecté
+            
+            $controller = new PermisTemporaireController();
+            $result = $controller->create($data);
+            
+            if ($result['success']) {
+                // Logging de la création
+                LogController::record(
+                    $_SESSION['username'] ?? 'system',
+                    'Création plaque temporaire',
+                    json_encode([
+                        'plaque_id' => $result['id'],
+                        'numero' => $result['numero'],
+                        'vehicule_id' => $data['cible_id'],
+                        'date_debut' => $data['date_debut'],
+                        'date_fin' => $data['date_fin'],
+                        'action' => 'create_plaque_temporaire'
+                    ]),
+                    $_SERVER['REMOTE_ADDR'] ?? '',
+                    $_SERVER['HTTP_USER_AGENT'] ?? ''
+                );
+                
+                echo json_encode($result);
+            } else {
+                http_response_code(500);
+                echo json_encode($result);
+            }
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Erreur serveur: ' . $e->getMessage()]);
+        }
+        break;
+
+    // Sauvegarde PDF plaque temporaire
+    case $method === 'POST' && path_match('/plaque-temporaire/{id}/save-pdf', $path, $p):
+        try {
+            require_once __DIR__ . '/../controllers/PermisTemporaireController.php';
+            
+            $plaqueId = (int)($p[0] ?? 0);
+            
+            if ($plaqueId <= 0) {
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'error' => 'ID plaque invalide']);
+                break;
+            }
+            
+            // Récupérer le fichier PDF uploadé
+            if (!isset($_FILES['pdf']) || $_FILES['pdf']['error'] !== UPLOAD_ERR_OK) {
+                http_response_code(400);
+                echo json_encode(['ok' => false, 'error' => 'Fichier PDF manquant ou invalide']);
+                break;
+            }
+            
+            $pdfContent = file_get_contents($_FILES['pdf']['tmp_name']);
+            
+            $controller = new PermisTemporaireController();
+            $result = $controller->savePdf($plaqueId, $pdfContent);
+            
+            if ($result['success']) {
+                echo json_encode(['ok' => true, 'message' => $result['message'], 'pdf_path' => $result['pdf_path']]);
+            } else {
+                http_response_code(500);
+                echo json_encode(['ok' => false, 'error' => $result['message']]);
+            }
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
+        }
+        break;
+
+    // Récupération des plaques temporaires d'un véhicule
+    case $method === 'GET' && path_match('/plaques-temporaires/vehicule/{id}', $path, $p):
+        try {
+            require_once __DIR__ . '/../controllers/PermisTemporaireController.php';
+            require_once __DIR__ . '/../controllers/LogController.php';
+            
+            $vehiculeId = (int)($p[0] ?? 0);
+            $username = $_GET['username'] ?? 'system';
+            
+            if ($vehiculeId <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'ID véhicule invalide']);
+                break;
+            }
+            
+            // Récupérer les plaques temporaires pour ce véhicule
+            $pdo = getDbConnection();
+            $stmt = $pdo->prepare("
+                SELECT * FROM permis_temporaire 
+                WHERE cible_type = 'vehicule_plaque' AND cible_id = :vehicule_id 
+                ORDER BY created_at DESC
+            ");
+            $stmt->bindParam(':vehicule_id', $vehiculeId, PDO::PARAM_INT);
+            $stmt->execute();
+            
+            $plaquesTemporaires = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Logging de la consultation
+            LogController::record(
+                $username,
+                'Consultation plaques temporaires véhicule',
+                json_encode([
+                    'vehicule_id' => $vehiculeId,
+                    'count' => count($plaquesTemporaires),
+                    'endpoint' => "GET /plaques-temporaires/vehicule/$vehiculeId"
+                ]),
+                $_SERVER['REMOTE_ADDR'] ?? '',
+                $_SERVER['HTTP_USER_AGENT'] ?? ''
+            );
+            
+            echo json_encode([
+                'success' => true,
+                'data' => $plaquesTemporaires,
+                'count' => count($plaquesTemporaires)
+            ]);
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Modification d'un particulier
+    case $method === 'POST' && path_match('/particulier/{id}/update', $path, $p):
+        try {
+            require_once __DIR__ . '/../controllers/ParticulierController.php';
+            require_once __DIR__ . '/../controllers/LogController.php';
+            
+            $particulierId = (int)($p[0] ?? 0);
+            
+            if ($particulierId <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => 'ID particulier invalide']);
+                break;
+            }
+            
+            // Récupérer les données POST et FILES
+            $data = $_POST;
+            $files = $_FILES;
+            $username = $data['username'] ?? 'system';
+            
+            // Validation des champs requis
+            if (empty($data['nom']) || empty($data['gsm']) || empty($data['adresse'])) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Les champs nom, téléphone et adresse sont requis'
+                ]);
+                break;
+            }
+            
+            $controller = new ParticulierController();
+            $result = $controller->updateComplete($particulierId, $data, $files);
+            
+            if ($result['success']) {
+                // Logging de la modification
+                LogController::record(
+                    $username,
+                    'Modification particulier',
+                    json_encode([
+                        'particulier_id' => $particulierId,
+                        'champs_modifies' => array_keys($data),
+                        'photos_uploadees' => $result['photos_uploaded'] ?? [],
+                        'action' => 'update_particulier'
+                    ]),
+                    $_SERVER['REMOTE_ADDR'] ?? '',
+                    $_SERVER['HTTP_USER_AGENT'] ?? ''
+                );
+                
+                echo json_encode($result);
+            } else {
+                http_response_code(400);
+                echo json_encode($result);
+            }
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur serveur: ' . $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Récupération de toutes les alertes
+    case $method === 'GET' && $path === '/alerts':
+        try {
+            require_once __DIR__ . '/../controllers/AvisRechercheController.php';
+            require_once __DIR__ . '/../controllers/AssuranceController.php';
+            
+            $pdo = getDbConnection();
+            $username = $_GET['username'] ?? 'system';
+            
+            $alerts = [
+                'avis_recherche_actifs' => [],
+                'assurances_expirees' => [],
+                'permis_temporaires_expires' => [],
+                'plaques_expirees' => [],
+                'permis_conduire_expires' => []
+            ];
+            
+            // 1. Avis de recherche actifs
+            $avisController = new AvisRechercheController();
+            $avisResult = $avisController->getActive();
+            if ($avisResult['success']) {
+                // Enrichir avec les détails de la cible
+                foreach ($avisResult['data'] as &$avis) {
+                    if ($avis['cible_type'] === 'vehicule_plaque') {
+                        $stmt = $pdo->prepare("SELECT id, plaque, marque, modele FROM vehicule_plaque WHERE id = :id");
+                        $stmt->bindParam(':id', $avis['cible_id']);
+                        $stmt->execute();
+                        $avis['cible_details'] = $stmt->fetch(PDO::FETCH_ASSOC);
+                    } elseif ($avis['cible_type'] === 'particulier' || $avis['cible_type'] === 'particuliers') {
+                        $stmt = $pdo->prepare("SELECT id, nom, gsm FROM particuliers WHERE id = :id");
+                        $stmt->bindParam(':id', $avis['cible_id']);
+                        $stmt->execute();
+                        $avis['cible_details'] = $stmt->fetch(PDO::FETCH_ASSOC);
+                    }
+                }
+                $alerts['avis_recherche_actifs'] = $avisResult['data'];
+            }
+            
+            // 2. Assurances expirées
+            $assuranceController = new AssuranceController();
+            $assuranceResult = $assuranceController->getExpiredAssurances();
+            if ($assuranceResult['success']) {
+                $alerts['assurances_expirees'] = $assuranceResult['data'];
+            }
+            
+            // 3. Permis temporaires expirés
+            $stmt = $pdo->prepare("
+                SELECT pt.*, 
+                    CASE 
+                        WHEN pt.cible_type = 'vehicule_plaque' THEN v.plaque
+                        WHEN pt.cible_type IN ('particulier', 'particuliers') THEN p.nom
+                        ELSE NULL
+                    END as cible_nom
+                FROM permis_temporaire pt
+                LEFT JOIN vehicule_plaque v ON pt.cible_type = 'vehicule_plaque' AND pt.cible_id = v.id
+                LEFT JOIN particuliers p ON pt.cible_type IN ('particulier', 'particuliers') AND pt.cible_id = p.id
+                WHERE pt.date_fin < NOW() AND pt.statut = 'actif'
+                ORDER BY pt.date_fin DESC
+            ");
+            $stmt->execute();
+            $alerts['permis_temporaires_expires'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // 4. Plaques expirées
+            $stmt = $pdo->prepare("
+                SELECT id, plaque, marque, modele, plaque_expire_le, couleur, annee
+                FROM vehicule_plaque 
+                WHERE plaque_expire_le < NOW() AND en_circulation = 1
+                ORDER BY plaque_expire_le DESC
+            ");
+            $stmt->execute();
+            $alerts['plaques_expirees'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // 5. Permis de conduire expirés
+            $stmt = $pdo->prepare("
+                SELECT id, nom, gsm, permis_date_expiration, adresse
+                FROM particuliers 
+                WHERE permis_date_expiration < NOW()
+                ORDER BY permis_date_expiration DESC
+            ");
+            $stmt->execute();
+            $alerts['permis_conduire_expires'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Compter les alertes
+            $total = count($alerts['avis_recherche_actifs']) +
+                     count($alerts['assurances_expirees']) +
+                     count($alerts['permis_temporaires_expires']) +
+                     count($alerts['plaques_expirees']) +
+                     count($alerts['permis_conduire_expires']);
+            
+            // Logging de la consultation
+            LogController::record(
+                $username,
+                'Consultation alertes',
+                json_encode([
+                    'total_alerts' => $total,
+                    'avis_recherche' => count($alerts['avis_recherche_actifs']),
+                    'assurances_expirees' => count($alerts['assurances_expirees']),
+                    'permis_temporaires_expires' => count($alerts['permis_temporaires_expires']),
+                    'plaques_expirees' => count($alerts['plaques_expirees']),
+                    'permis_conduire_expires' => count($alerts['permis_conduire_expires']),
+                    'endpoint' => 'GET /alerts'
+                ]),
+                $_SERVER['REMOTE_ADDR'] ?? '',
+                $_SERVER['HTTP_USER_AGENT'] ?? ''
+            );
+            
+            echo json_encode([
+                'success' => true,
+                'data' => $alerts,
+                'total' => $total
+            ]);
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur serveur: ' . $e->getMessage()
             ]);
         }
         break;

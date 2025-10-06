@@ -303,6 +303,29 @@ class _CreateAgentModalState extends State<CreateAgentModal> {
             hour: int.parse(currentTime.split(':')[0]),
             minute: int.parse(currentTime.split(':')[1]),
           ),
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: Theme.of(context).colorScheme.copyWith(
+                  primary: Theme.of(context).colorScheme.primary,
+                  onPrimary: Colors.white,
+                  surface: Theme.of(context).colorScheme.surface,
+                  onSurface: Colors.white,
+                ),
+                textButtonTheme: TextButtonThemeData(
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                timePickerTheme: TimePickerThemeData(
+                  dialTextColor: Colors.white,
+                  hourMinuteTextColor: Colors.white,
+                ),
+              ),
+              child: child!,
+            );
+          },
         );
         if (picked != null) {
           setState(() {

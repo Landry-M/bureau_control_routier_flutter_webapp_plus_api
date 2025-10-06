@@ -37,6 +37,23 @@ class ApiConfig {
   /// URL pour localhost (web/desktop)
   static String get localhostUrl => 'http://$_localhost/api/routes/index.php';
   
+  /// URL de base pour les images et fichiers statiques (sans /api/routes/index.php)
+  static String get imageBaseUrl {
+    if (kIsWeb) {
+      return 'http://$_localhost';
+    }
+    
+    if (Platform.isAndroid) {
+      return 'http://$_androidEmulator';
+    }
+    
+    if (Platform.isIOS) {
+      return 'http://$_iosSimulator';
+    }
+    
+    return 'http://$_localhost';
+  }
+
   /// Méthode pour forcer une URL spécifique (utile pour les tests)
   static String getCustomUrl(String host, int port) {
     return 'http://$host:$port/api/routes/index.php';

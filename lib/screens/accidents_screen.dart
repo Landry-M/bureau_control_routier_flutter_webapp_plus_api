@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../providers/accident_provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/responsive.dart';
 import '../widgets/top_bar.dart';
+import 'dart:async';
 
 class AccidentsScreen extends StatefulWidget {
   const AccidentsScreen({super.key});
@@ -73,6 +75,53 @@ class _AccidentsScreenState extends State<AccidentsScreen> {
             child: const Text('Fermer'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showLocationOnMap(dynamic latitude, dynamic longitude, String locationName) {
+    if (latitude == null || longitude == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Coordonnées GPS non disponibles')),
+      );
+      return;
+    }
+
+    double? lat;
+    double? lng;
+
+    try {
+      if (latitude is String) {
+        lat = double.parse(latitude);
+      } else if (latitude is num) {
+        lat = latitude.toDouble();
+      }
+
+      if (longitude is String) {
+        lng = double.parse(longitude);
+      } else if (longitude is num) {
+        lng = longitude.toDouble();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur de format des coordonnées: $e')),
+      );
+      return;
+    }
+
+    if (lat == null || lng == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Coordonnées invalides')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => _LocationMapDialog(
+        latitude: lat!,
+        longitude: lng!,
+        locationName: locationName,
       ),
     );
   }
@@ -384,6 +433,24 @@ class _AccidentsScreenState extends State<AccidentsScreen> {
                                                     ),
                                                     onPressed: () => _showAccidentDetails(accident),
                                                   ),
+                                                  if (accident['latitude'] != null && accident['longitude'] != null) ...[
+                                                    const SizedBox(width: 8),
+                                                    IconButton(
+                                                      icon: const Icon(Icons.map, color: Colors.white),
+                                                      tooltip: 'Voir sur la carte',
+                                                      style: IconButton.styleFrom(
+                                                        backgroundColor: Colors.blue[700],
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: BorderRadius.circular(8),
+                                                        ),
+                                                      ),
+                                                      onPressed: () => _showLocationOnMap(
+                                                        accident['latitude'],
+                                                        accident['longitude'],
+                                                        accident['lieu'] ?? 'Lieu de l\'accident',
+                                                      ),
+                                                    ),
+                                                  ],
                                                   if (isSuperAdmin) ...[
                                                     const SizedBox(width: 8),
                                                     IconButton(
@@ -601,5 +668,173 @@ class _AccidentDetailsModal extends StatelessWidget {
     } catch (e) {
       return date.toString();
     }
+  }
+}
+
+// Modal pour afficher la localisation sur la carte
+class _LocationMapDialog extends StatefulWidget {
+  final double latitude;
+  final double longitude;
+  final String locationName;
+
+  const _LocationMapDialog({
+    required this.latitude,
+    required this.longitude,
+    required this.locationName,
+  });
+
+  @override
+  State<_LocationMapDialog> createState() => _LocationMapDialogState();
+}
+
+class _LocationMapDialogState extends State<_LocationMapDialog> {
+  final Completer<GoogleMapController> _mapControllerCompleter = Completer();
+  Set<Marker> _markers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _markers = {
+      Marker(
+        markerId: const MarkerId('accident_location'),
+        position: LatLng(widget.latitude, widget.longitude),
+        infoWindow: InfoWindow(
+          title: 'Lieu de l\'accident',
+          snippet: widget.locationName,
+        ),
+      ),
+    };
+  }
+
+  @override
+  void dispose() {
+    _mapControllerCompleter.future.then((controller) {
+      controller.dispose();
+    }).catchError((_) {
+      // Contrôleur pas encore initialisé
+    });
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.7,
+        height: MediaQuery.of(context).size.height * 0.7,
+        constraints: const BoxConstraints(
+          maxWidth: 900,
+          maxHeight: 600,
+        ),
+        child: Column(
+          children: [
+            // En-tête
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.location_on,
+                    color: theme.colorScheme.primary,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Localisation de l\'accident',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onPrimaryContainer,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.locationName,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onPrimaryContainer.withOpacity(0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ],
+              ),
+            ),
+
+            // Carte Google Maps
+            Expanded(
+              child: GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: LatLng(widget.latitude, widget.longitude),
+                  zoom: 15,
+                ),
+                markers: _markers,
+                onMapCreated: (controller) {
+                  if (!_mapControllerCompleter.isCompleted) {
+                    _mapControllerCompleter.complete(controller);
+                  }
+                },
+                mapType: MapType.normal,
+                myLocationButtonEnabled: true,
+                zoomControlsEnabled: true,
+              ),
+            ),
+
+            // Informations en bas
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainer,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Coordonnées: ${widget.latitude.toStringAsFixed(6)}, ${widget.longitude.toStringAsFixed(6)}',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                    label: const Text('Fermer'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

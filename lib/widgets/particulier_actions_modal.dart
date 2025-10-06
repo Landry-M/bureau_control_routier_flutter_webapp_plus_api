@@ -58,7 +58,8 @@ class ParticulierActionsModal extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '${particulier['nom']} ${particulier['prenom'] ?? ''}'.trim(),
+                        '${particulier['nom']} ${particulier['prenom'] ?? ''}'
+                            .trim(),
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colorScheme.onSurface,
@@ -100,9 +101,10 @@ class ParticulierActionsModal extends StatelessWidget {
                         icon: Icons.badge,
                         iconColor: Colors.indigo,
                         title: 'Émettre un permis de conduire temporaire',
-                        subtitle: 'Créer un permis provisoire pour une durée limitée.',
+                        subtitle:
+                            'Créer un permis provisoire pour une durée limitée.',
                         buttonText: 'Émettre maintenant',
-                        buttonColor: Colors.indigo,
+                        buttonColor: Colors.grey,
                         onTap: onEmettrePermis,
                       ),
                     ),
@@ -115,7 +117,7 @@ class ParticulierActionsModal extends StatelessWidget {
                         title: 'Associer un véhicule',
                         subtitle: 'Lier un véhicule existant à cet individu.',
                         buttonText: 'Associer un véhicule',
-                        buttonColor: Colors.blue,
+                        buttonColor: Colors.grey,
                         onTap: onAssocierVehicule,
                       ),
                     ),
@@ -128,7 +130,7 @@ class ParticulierActionsModal extends StatelessWidget {
                         title: 'Sanctionner l\'individu',
                         subtitle: 'Enregistrer une sanction administrative.',
                         buttonText: 'Créer une contravention',
-                        buttonColor: Colors.amber,
+                        buttonColor: Colors.grey,
                         onTap: onCreerContravention,
                       ),
                     ),
@@ -141,7 +143,7 @@ class ParticulierActionsModal extends StatelessWidget {
                         title: 'Arrestation de l\'individu',
                         subtitle: 'Consigner une interpellation et motif.',
                         buttonText: 'Consigner une arrestation',
-                        buttonColor: Colors.red,
+                        buttonColor: Colors.grey,
                         onTap: onConsignerArrestation,
                       ),
                     ),
@@ -152,9 +154,10 @@ class ParticulierActionsModal extends StatelessWidget {
                         icon: Icons.crop_square,
                         iconColor: colorScheme.outline,
                         title: 'Lancer un avis de recherche',
-                        subtitle: 'Déclencher un avis de recherche pour cet individu.',
+                        subtitle:
+                            'Déclencher un avis de recherche pour cet individu.',
                         buttonText: 'Émettre un avis de recherche',
-                        buttonColor: Colors.red,
+                        buttonColor: Colors.grey,
                         onTap: onEmettreAvisRecherche,
                       ),
                     ),
@@ -246,26 +249,29 @@ class ParticulierActionsModal extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: onTap ?? () {
-                  Navigator.of(context).pop();
-                  toastification.show(
-                    context: context,
-                    type: ToastificationType.warning,
-                    style: ToastificationStyle.fillColored,
-                    title: const Text('Fonctionnalité en développement'),
-                    description: Text('La fonctionnalité "$buttonText" est en cours de développement'),
-                    alignment: Alignment.topRight,
-                    autoCloseDuration: const Duration(seconds: 4),
-                    showProgressBar: true,
-                  );
-                },
+                onPressed: onTap ??
+                    () {
+                      Navigator.of(context).pop();
+                      toastification.show(
+                        context: context,
+                        type: ToastificationType.warning,
+                        style: ToastificationStyle.fillColored,
+                        title: const Text('Fonctionnalité en développement'),
+                        description: Text(
+                            'La fonctionnalité "$buttonText" est en cours de développement'),
+                        alignment: Alignment.topRight,
+                        autoCloseDuration: const Duration(seconds: 4),
+                        showProgressBar: true,
+                      );
+                    },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: buttonColor,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   elevation: 0,
                 ),
                 child: Text(

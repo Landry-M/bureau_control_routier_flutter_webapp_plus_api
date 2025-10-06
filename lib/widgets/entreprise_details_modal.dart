@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'package:toastification/toastification.dart';
 
 import '../config/api_config.dart';
+import '../providers/auth_provider.dart';
 import '../services/api_client.dart';
 
 class EntrepriseDetailsModal extends StatefulWidget {
@@ -21,14 +24,18 @@ class _EntrepriseDetailsModalState extends State<EntrepriseDetailsModal>
     with TickerProviderStateMixin {
   late TabController _tabController;
   List<Map<String, dynamic>> _contraventions = [];
+  List<Map<String, dynamic>> _vehicules = [];
   bool _loadingContraventions = false;
+  bool _loadingVehicules = false;
   String? _errorContraventions;
+  String? _errorVehicules;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadContraventions();
+    _loadVehicules();
   }
 
   @override
@@ -226,100 +233,300 @@ class _EntrepriseDetailsModalState extends State<EntrepriseDetailsModal>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Informations principales
-          Text('Informations principales', style: tt.titleMedium),
-          const SizedBox(height: 8),
-          Wrap(spacing: 12, runSpacing: 12, children: [
-            SizedBox(
-              width: 100,
-              child: _buildFormField('ID', widget.entreprise['id']),
-            ),
-            SizedBox(
-              width: 380,
-              child: _buildFormField(
-                  'Désignation', widget.entreprise['designation'],
-                  isTitle: true),
-            ),
-            SizedBox(
-              width: 180,
-              child: _buildFormField('RCCM', widget.entreprise['rccm']),
-            ),
-            SizedBox(
-              width: 380,
-              child: _buildFormField(
-                  'Siège social', widget.entreprise['siege_social']),
-            ),
-            SizedBox(
-              width: 260,
-              child: _buildFormField(
-                  'Secteur d\'activité', widget.entreprise['secteur']),
-            ),
-          ]),
+          // Informations principales - Colonne 1 et 2
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Informations principales', style: tt.titleMedium),
+                    const SizedBox(height: 8),
+                    _buildFormField('ID', widget.entreprise['id']),
+                    const SizedBox(height: 12),
+                    _buildFormField('Désignation', widget.entreprise['designation'], isTitle: true),
+                    const SizedBox(height: 12),
+                    _buildFormField('RCCM', widget.entreprise['rccm']),
+                    const SizedBox(height: 12),
+                    _buildFormField('Siège social', widget.entreprise['siege_social']),
+                    const SizedBox(height: 12),
+                    _buildFormField('Secteur d\'activité', widget.entreprise['secteur']),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Colonne 2
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Coordonnées & Contact', style: tt.titleMedium),
+                    const SizedBox(height: 8),
+                    _buildFormField('Téléphone', widget.entreprise['gsm']),
+                    const SizedBox(height: 12),
+                    _buildFormField('Email', widget.entreprise['email']),
+                    const SizedBox(height: 12),
+                    _buildFormField('Personne à contacter', widget.entreprise['personne_contact']),
+                    const SizedBox(height: 12),
+                    _buildFormField('Fonction', widget.entreprise['fonction_contact']),
+                    const SizedBox(height: 12),
+                    _buildFormField('Téléphone contact', widget.entreprise['telephone_contact']),
+                  ],
+                ),
+              ),
+            ],
+          ),
 
           const SizedBox(height: 16),
 
-          // Coordonnées
-          Text('Coordonnées', style: tt.titleMedium),
-          const SizedBox(height: 8),
-          Wrap(spacing: 12, runSpacing: 12, children: [
-            SizedBox(
-              width: 200,
-              child: _buildFormField('Téléphone', widget.entreprise['gsm']),
-            ),
-            SizedBox(
-              width: 300,
-              child: _buildFormField('Email', widget.entreprise['email']),
-            ),
-          ]),
-
-          const SizedBox(height: 16),
-
-          // Personne de contact
-          Text('Représentant / Contact', style: tt.titleMedium),
-          const SizedBox(height: 8),
-          Wrap(spacing: 12, runSpacing: 12, children: [
-            SizedBox(
-              width: 300,
-              child: _buildFormField('Personne à contacter',
-                  widget.entreprise['personne_contact']),
-            ),
-            SizedBox(
-              width: 200,
-              child: _buildFormField(
-                  'Fonction', widget.entreprise['fonction_contact']),
-            ),
-            SizedBox(
-              width: 200,
-              child: _buildFormField(
-                  'Téléphone contact', widget.entreprise['telephone_contact']),
-            ),
-          ]),
-
-          const SizedBox(height: 16),
-
-          // Informations supplémentaires
+          // Observations (pleine largeur)
           Text('Informations supplémentaires', style: tt.titleMedium),
           const SizedBox(height: 8),
-          Wrap(spacing: 12, runSpacing: 12, children: [
-            SizedBox(
-              width: 640,
-              child: _buildFormField(
-                  'Observations', widget.entreprise['observations']),
-            ),
-            SizedBox(
-              width: 200,
-              child: _buildFormField('Date de création',
-                  _formatDate(widget.entreprise['created_at'])),
-            ),
-            SizedBox(
-              width: 200,
-              child: _buildFormField('Dernière modification',
-                  _formatDate(widget.entreprise['updated_at'])),
-            ),
-          ]),
+          _buildFormField('Observations', widget.entreprise['observations']),
+
+          const SizedBox(height: 16),
+
+          // Dates système
+          Text('Informations système', style: tt.titleMedium),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildFormField('Date de création', _formatDate(widget.entreprise['created_at'])),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildFormField('Dernière modification', _formatDate(widget.entreprise['updated_at'])),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+          ..._buildVehiculesSection(),
         ],
       ),
     );
+  }
+
+  Future<void> _loadVehicules() async {
+    setState(() {
+      _loadingVehicules = true;
+      _errorVehicules = null;
+    });
+
+    try {
+      final username = context.read<AuthProvider>().username;
+      final url = Uri.parse(ApiConfig.baseUrl).replace(
+        queryParameters: {
+          'route': '/entreprise/${widget.entreprise['id']}/vehicules',
+          'username': username,
+        },
+      );
+
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          setState(() {
+            _vehicules = List<Map<String, dynamic>>.from(data['data'] ?? []);
+          });
+        } else {
+          setState(() {
+            _errorVehicules = data['message'] ??
+                'Erreur lors du chargement des véhicules';
+          });
+        }
+      } else {
+        setState(() {
+          _errorVehicules = 'Erreur serveur: ${response.statusCode}';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorVehicules = 'Erreur de connexion: $e';
+      });
+    } finally {
+      setState(() {
+        _loadingVehicules = false;
+      });
+    }
+  }
+
+  List<Widget> _buildVehiculesSection() {
+    return [
+      const Divider(thickness: 2),
+      const SizedBox(height: 16),
+      Row(
+        children: [
+          Icon(
+            Icons.directions_car,
+            color: Theme.of(context).colorScheme.primary,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Véhicules associés',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      if (_loadingVehicules)
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: CircularProgressIndicator(),
+          ),
+        )
+      else if (_errorVehicules != null)
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.red.shade300),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red.shade600),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _errorVehicules!,
+                  style: TextStyle(color: Colors.red.shade600),
+                ),
+              ),
+            ],
+          ),
+        )
+      else if (_vehicules.isEmpty)
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.grey.shade600),
+              const SizedBox(width: 8),
+              Text(
+                'Aucun véhicule associé',
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        )
+      else
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: DataTable(
+              columnSpacing: 12,
+              horizontalMargin: 12,
+              headingRowColor: MaterialStateProperty.all(
+                Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.5),
+              ),
+              dataRowMaxHeight: 56,
+              columns: const [
+                DataColumn(
+                  label: Text(
+                    'Plaque',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Marque',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Modèle',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Couleur',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'N° Chassis',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Date association',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+              ],
+              rows: _vehicules.map((vehicule) {
+                return DataRow(
+                  cells: [
+                    DataCell(
+                      Text(
+                        vehicule['plaque']?.toString() ?? 'N/A',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        vehicule['marque']?.toString() ?? 'N/A',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        vehicule['modele']?.toString() ?? 'N/A',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        vehicule['couleur']?.toString() ?? 'N/A',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        vehicule['numero_chassis']?.toString() ?? 'N/A',
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        _formatDate(vehicule['date_assoc']),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+    ];
   }
 
   Widget _buildContraventionsTab() {

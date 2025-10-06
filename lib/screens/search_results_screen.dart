@@ -134,6 +134,14 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                   Center(child: Text(_error!, style: tt.bodyMedium?.copyWith(color: cs.error)))
                 else if (_all.isEmpty)
                   Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: Colors.grey.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Row(children: [
@@ -145,6 +153,14 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                   )
                 else ...[
                   Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: Colors.grey.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
                     child: ListView.separated(
                       physics: const NeverScrollableScrollPhysics(),
                       shrinkWrap: true,

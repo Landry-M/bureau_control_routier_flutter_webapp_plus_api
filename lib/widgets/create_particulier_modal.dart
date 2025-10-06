@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../services/api_client.dart';
 import '../services/notification_service.dart';
+import '../utils/date_time_picker_theme.dart';
 
 class CreateParticulierModal extends StatefulWidget {
   const CreateParticulierModal({super.key});
@@ -95,26 +96,7 @@ class _CreateParticulierModalState extends State<CreateParticulierModal> {
       initialDate: _dateNaissance ?? DateTime.now().subtract(const Duration(days: 365 * 25)),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: Colors.blue,
-                  onPrimary: Colors.black,
-                  surface: Colors.white,
-                  onSurface: Colors.black,
-                ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.black,
-                backgroundColor: Colors.white,
-                side: const BorderSide(color: Colors.grey),
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: buildThemedPicker,
     );
 
     if (date != null && mounted) {
@@ -132,26 +114,7 @@ class _CreateParticulierModalState extends State<CreateParticulierModal> {
       initialDate: _permisDateEmission ?? DateTime.now().subtract(const Duration(days: 365 * 5)),
       firstDate: DateTime(1990),
       lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: Colors.blue,
-                  onPrimary: Colors.black,
-                  surface: Colors.white,
-                  onSurface: Colors.black,
-                ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.black,
-                backgroundColor: Colors.white,
-                side: const BorderSide(color: Colors.grey),
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: buildThemedPicker,
     );
 
     if (date != null && mounted) {
@@ -169,26 +132,7 @@ class _CreateParticulierModalState extends State<CreateParticulierModal> {
       initialDate: _permisDateExpiration ?? DateTime.now().add(const Duration(days: 365 * 5)),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365 * 20)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: Colors.blue,
-                  onPrimary: Colors.black,
-                  surface: Colors.white,
-                  onSurface: Colors.black,
-                ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.black,
-                backgroundColor: Colors.white,
-                side: const BorderSide(color: Colors.grey),
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
+      builder: buildThemedPicker,
     );
 
     if (date != null && mounted) {

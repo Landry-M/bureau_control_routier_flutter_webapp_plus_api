@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../utils/responsive.dart';
 import '../widgets/top_bar.dart';
+import '../config/api_config.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -49,6 +51,42 @@ class DashboardScreen extends StatelessWidget {
   }
 }
 
+// Fonction pour ouvrir le PDF du code de la route dans un nouvel onglet
+Future<void> _openCodeDelaRoute(BuildContext context) async {
+  try {
+    // Construire l'URL du PDF
+    final pdfUrl = '${ApiConfig.baseUrl.replaceAll('/api/routes/index.php', '')}/api/assets/code_de_la_route.pdf';
+    
+    final uri = Uri.parse(pdfUrl);
+    
+    // Ouvrir dans un nouvel onglet/fenêtre
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication, // Ouvre dans le navigateur/visionneuse PDF
+      );
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impossible d\'ouvrir le fichier PDF'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de l\'ouverture du PDF: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
+
 class _QuickActionsRow extends StatelessWidget {
   const _QuickActionsRow({required this.cs, required this.tt});
   final ColorScheme cs;
@@ -76,7 +114,7 @@ class _QuickActionsRow extends StatelessWidget {
                 border: Border.all(color: cs.outline.withValues(alpha: 0.3)),
               ),
               child: InkWell(
-                onTap: () {
+                onTap: () async {
                   if (a.$2 == "Rapport des activités") {
                     context.push('/activity-report');
                   } else if (a.$2 == "Créer un dossier") {
@@ -85,6 +123,8 @@ class _QuickActionsRow extends StatelessWidget {
                     context.push('/all-records');
                   } else if (a.$2 == "Rapports d'accidents") {
                     context.push('/accidents');
+                  } else if (a.$2 == "Code de la route") {
+                    await _openCodeDelaRoute(context);
                   }
                 },
                 borderRadius: BorderRadius.circular(12),

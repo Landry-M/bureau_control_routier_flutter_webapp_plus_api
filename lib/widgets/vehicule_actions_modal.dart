@@ -67,7 +67,8 @@ class VehiculeActionsModal extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        '${vehicule['marque'] ?? ''} ${vehicule['modele'] ?? ''}'.trim(),
+                        '${vehicule['marque'] ?? ''} ${vehicule['modele'] ?? ''}'
+                            .trim(),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -102,9 +103,10 @@ class VehiculeActionsModal extends StatelessWidget {
                         icon: Icons.warning,
                         iconColor: Colors.red,
                         title: 'Sanctionner le véhicule',
-                        subtitle: 'Ouvrir le formulaire de contravention pour ce véhicule.',
+                        subtitle:
+                            'Ouvrir le formulaire de contravention pour ce véhicule.',
                         buttonText: 'Sanctionner',
-                        buttonColor: Colors.red,
+                        buttonColor: Colors.grey,
                         onTap: onSanctionner,
                       ),
                     ),
@@ -117,7 +119,7 @@ class VehiculeActionsModal extends StatelessWidget {
                         title: 'Changer de propriétaire',
                         subtitle: 'Transférer la propriété du véhicule.',
                         buttonText: 'Transférer',
-                        buttonColor: Colors.indigo,
+                        buttonColor: Colors.grey,
                         onTap: onChangerProprietaire,
                       ),
                     ),
@@ -130,7 +132,7 @@ class VehiculeActionsModal extends StatelessWidget {
                         title: 'Retirer le véhicule',
                         subtitle: 'Retirer le véhicule de la circulation.',
                         buttonText: 'Retirer véhicule',
-                        buttonColor: Colors.orange,
+                        buttonColor: Colors.grey,
                         onTap: onRetirerVehicule,
                       ),
                     ),
@@ -154,9 +156,10 @@ class VehiculeActionsModal extends StatelessWidget {
                         icon: Icons.access_time,
                         iconColor: Colors.teal,
                         title: 'Plaque temporaire',
-                        subtitle: 'Attribuer une plaque temporaire au véhicule.',
+                        subtitle:
+                            'Attribuer une plaque temporaire au véhicule.',
                         buttonText: 'Plaque temporaire',
-                        buttonColor: Colors.teal,
+                        buttonColor: Colors.grey,
                         onTap: onPlaqueTemporaire,
                       ),
                     ),
@@ -167,9 +170,10 @@ class VehiculeActionsModal extends StatelessWidget {
                         icon: Icons.campaign,
                         iconColor: Colors.red,
                         title: 'Avis de recherche',
-                        subtitle: 'Émettre un avis de recherche pour ce véhicule.',
+                        subtitle:
+                            'Émettre un avis de recherche pour ce véhicule.',
                         buttonText: 'Émettre un avis',
-                        buttonColor: Colors.red,
+                        buttonColor: Colors.grey,
                         onTap: onEmettreAvis,
                       ),
                     ),
@@ -261,26 +265,29 @@ class VehiculeActionsModal extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: onTap ?? () {
-                  Navigator.of(context).pop();
-                  toastification.show(
-                    context: context,
-                    type: ToastificationType.warning,
-                    style: ToastificationStyle.fillColored,
-                    title: const Text('Fonctionnalité en développement'),
-                    description: Text('La fonctionnalité "$buttonText" est en cours de développement'),
-                    alignment: Alignment.topRight,
-                    autoCloseDuration: const Duration(seconds: 4),
-                    showProgressBar: true,
-                  );
-                },
+                onPressed: onTap ??
+                    () {
+                      Navigator.of(context).pop();
+                      toastification.show(
+                        context: context,
+                        type: ToastificationType.warning,
+                        style: ToastificationStyle.fillColored,
+                        title: const Text('Fonctionnalité en développement'),
+                        description: Text(
+                            'La fonctionnalité "$buttonText" est en cours de développement'),
+                        alignment: Alignment.topRight,
+                        autoCloseDuration: const Duration(seconds: 4),
+                        showProgressBar: true,
+                      );
+                    },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: buttonColor,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   elevation: 0,
                 ),
                 child: Text(
