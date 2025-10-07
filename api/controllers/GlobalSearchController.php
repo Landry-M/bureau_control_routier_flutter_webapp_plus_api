@@ -37,6 +37,30 @@ class GlobalSearchController extends BaseController {
             $accidentResults = $this->searchAccidents($searchTerm);
             $results = array_merge($results, $accidentResults);
             
+            // Recherche dans les arrestations
+            $arrestationResults = $this->searchArrestations($searchTerm);
+            $results = array_merge($results, $arrestationResults);
+            
+            // Recherche dans les users/agents
+            $userResults = $this->searchUsers($searchTerm);
+            $results = array_merge($results, $userResults);
+            
+            // Recherche dans les avis de recherche
+            $avisResults = $this->searchAvisRecherche($searchTerm);
+            $results = array_merge($results, $avisResults);
+            
+            // Recherche dans les permis temporaires
+            $permisResults = $this->searchPermisTemporaire($searchTerm);
+            $results = array_merge($results, $permisResults);
+            
+            // Recherche dans les témoins
+            $temoinResults = $this->searchTemoins($searchTerm);
+            $results = array_merge($results, $temoinResults);
+            
+            // Recherche dans les assurances véhicules
+            $assuranceResults = $this->searchAssurances($searchTerm);
+            $results = array_merge($results, $assuranceResults);
+            
             // Limiter les résultats
             if (count($results) > $limit) {
                 $results = array_slice($results, 0, $limit);
@@ -58,15 +82,28 @@ class GlobalSearchController extends BaseController {
     }
     
     private function searchVehicles($searchTerm) {
-        $sql = "SELECT id, plaque, marque, modele, couleur, proprietaire, annee, created_at,
+        // Recherche dans TOUS les champs de la table vehicule_plaque
+        $sql = "SELECT id, plaque, marque, modele, couleur, annee, created_at,
                        'vehicule' as type, 'Véhicule' as type_label
                 FROM vehicule_plaque 
                 WHERE plaque LIKE :search 
                    OR marque LIKE :search 
                    OR modele LIKE :search 
                    OR couleur LIKE :search 
-                   OR proprietaire LIKE :search 
                    OR annee LIKE :search
+                   OR numero_chassis LIKE :search
+                   OR frontiere_entree LIKE :search
+                   OR nume_assurance LIKE :search
+                   OR societe_assurance LIKE :search
+                   OR genre LIKE :search
+                   OR `usage` LIKE :search
+                   OR numero_declaration LIKE :search
+                   OR num_moteur LIKE :search
+                   OR origine LIKE :search
+                   OR source LIKE :search
+                   OR annee_fab LIKE :search
+                   OR annee_circ LIKE :search
+                   OR type_em LIKE :search
                 ORDER BY created_at DESC
                 LIMIT 20";
         
@@ -81,7 +118,7 @@ class GlobalSearchController extends BaseController {
                 'type' => $row['type'],
                 'type_label' => $row['type_label'],
                 'title' => $row['plaque'] . ' - ' . $row['marque'] . ' ' . $row['modele'],
-                'subtitle' => 'Propriétaire: ' . ($row['proprietaire'] ?: 'N/A') . ' | Couleur: ' . ($row['couleur'] ?: 'N/A'),
+                'subtitle' => 'Couleur: ' . ($row['couleur'] ?: 'N/A') . ' | Année: ' . ($row['annee'] ?: 'N/A'),
                 'created_at' => $row['created_at'],
                 'data' => $row
             ];
@@ -91,6 +128,7 @@ class GlobalSearchController extends BaseController {
     }
     
     private function searchParticuliers($searchTerm) {
+        // Recherche dans TOUS les champs de la table particuliers
         $sql = "SELECT id, nom, adresse, gsm, email, numero_national, created_at,
                        'particulier' as type, 'Particulier' as type_label
                 FROM particuliers 
@@ -99,6 +137,14 @@ class GlobalSearchController extends BaseController {
                    OR gsm LIKE :search 
                    OR email LIKE :search 
                    OR numero_national LIKE :search
+                   OR profession LIKE :search
+                   OR genre LIKE :search
+                   OR lieu_naissance LIKE :search
+                   OR nationalite LIKE :search
+                   OR etat_civil LIKE :search
+                   OR personne_contact LIKE :search
+                   OR personne_contact_telephone LIKE :search
+                   OR observations LIKE :search
                 ORDER BY created_at DESC
                 LIMIT 20";
         
@@ -123,6 +169,7 @@ class GlobalSearchController extends BaseController {
     }
     
     private function searchEntreprises($searchTerm) {
+        // Recherche dans TOUS les champs de la table entreprises
         $sql = "SELECT id, designation, rccm, siege_social, gsm, email, created_at,
                        'entreprise' as type, 'Entreprise' as type_label
                 FROM entreprises 
@@ -131,6 +178,11 @@ class GlobalSearchController extends BaseController {
                    OR siege_social LIKE :search 
                    OR gsm LIKE :search 
                    OR email LIKE :search
+                   OR personne_contact LIKE :search
+                   OR fonction_contact LIKE :search
+                   OR telephone_contact LIKE :search
+                   OR secteur LIKE :search
+                   OR observations LIKE :search
                 ORDER BY created_at DESC
                 LIMIT 20";
         
@@ -155,6 +207,7 @@ class GlobalSearchController extends BaseController {
     }
     
     private function searchContraventions($searchTerm) {
+        // Recherche dans TOUS les champs de la table contraventions
         $sql = "SELECT id, type_infraction, lieu, description, amende, date_infraction, created_at,
                        'contravention' as type, 'Contravention' as type_label
                 FROM contraventions 
@@ -162,6 +215,10 @@ class GlobalSearchController extends BaseController {
                    OR lieu LIKE :search 
                    OR description LIKE :search 
                    OR reference_loi LIKE :search
+                   OR amende LIKE :search
+                   OR dossier_id LIKE :search
+                   OR type_dossier LIKE :search
+                   OR payed LIKE :search
                 ORDER BY created_at DESC
                 LIMIT 20";
         
@@ -186,12 +243,14 @@ class GlobalSearchController extends BaseController {
     }
     
     private function searchAccidents($searchTerm) {
+        // Recherche dans TOUS les champs de la table accidents
         $sql = "SELECT id, lieu, gravite, description, date_accident, created_at,
                        'accident' as type, 'Accident' as type_label
                 FROM accidents 
                 WHERE lieu LIKE :search 
                    OR description LIKE :search 
                    OR gravite LIKE :search
+                   OR images LIKE :search
                 ORDER BY created_at DESC
                 LIMIT 20";
         
@@ -215,6 +274,205 @@ class GlobalSearchController extends BaseController {
         return $results;
     }
     
+    private function searchArrestations($searchTerm) {
+        // Recherche dans TOUS les champs de la table arrestations
+        $sql = "SELECT a.id, a.motif, a.lieu, a.date_arrestation, a.created_at,
+                       p.nom as particulier_nom,
+                       'arrestation' as type, 'Arrestation' as type_label
+                FROM arrestations a
+                LEFT JOIN particuliers p ON a.particulier_id = p.id
+                WHERE a.motif LIKE :search 
+                   OR a.lieu LIKE :search 
+                   OR a.created_by LIKE :search
+                   OR p.nom LIKE :search
+                ORDER BY a.created_at DESC
+                LIMIT 20";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':search', $searchTerm);
+        $stmt->execute();
+        
+        $results = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $results[] = [
+                'id' => $row['id'],
+                'type' => $row['type'],
+                'type_label' => $row['type_label'],
+                'title' => 'Arrestation - ' . ($row['particulier_nom'] ?: 'N/A'),
+                'subtitle' => 'Motif: ' . substr($row['motif'], 0, 50) . ' | Lieu: ' . ($row['lieu'] ?: 'N/A'),
+                'created_at' => $row['created_at'],
+                'data' => $row
+            ];
+        }
+        
+        return $results;
+    }
+    
+    private function searchUsers($searchTerm) {
+        // Recherche dans TOUS les champs de la table users
+        $sql = "SELECT id, username, matricule, telephone, role, poste, created_at,
+                       'user' as type, 'Utilisateur/Agent' as type_label
+                FROM users 
+                WHERE username LIKE :search 
+                   OR matricule LIKE :search 
+                   OR telephone LIKE :search 
+                   OR role LIKE :search
+                   OR poste LIKE :search
+                ORDER BY created_at DESC
+                LIMIT 20";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':search', $searchTerm);
+        $stmt->execute();
+        
+        $results = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $results[] = [
+                'id' => $row['id'],
+                'type' => $row['type'],
+                'type_label' => $row['type_label'],
+                'title' => $row['username'],
+                'subtitle' => 'Matricule: ' . ($row['matricule'] ?: 'N/A') . ' | Rôle: ' . ($row['role'] ?: 'N/A'),
+                'created_at' => $row['created_at'],
+                'data' => $row
+            ];
+        }
+        
+        return $results;
+    }
+    
+    private function searchAvisRecherche($searchTerm) {
+        // Recherche dans TOUS les champs de la table avis_recherche
+        $sql = "SELECT id, cible_type, cible_id, motif, niveau, created_at,
+                       'avis_recherche' as type, 'Avis de recherche' as type_label
+                FROM avis_recherche 
+                WHERE motif LIKE :search 
+                   OR cible_type LIKE :search 
+                   OR niveau LIKE :search
+                   OR created_by LIKE :search
+                ORDER BY created_at DESC
+                LIMIT 20";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':search', $searchTerm);
+        $stmt->execute();
+        
+        $results = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $results[] = [
+                'id' => $row['id'],
+                'type' => $row['type'],
+                'type_label' => $row['type_label'],
+                'title' => 'Avis de recherche - ' . $row['cible_type'],
+                'subtitle' => 'Niveau: ' . ($row['niveau'] ?: 'N/A') . ' | Motif: ' . substr($row['motif'], 0, 30),
+                'created_at' => $row['created_at'],
+                'data' => $row
+            ];
+        }
+        
+        return $results;
+    }
+    
+    private function searchPermisTemporaire($searchTerm) {
+        // Recherche dans TOUS les champs de la table permis_temporaire
+        $sql = "SELECT id, numero, cible_type, cible_id, motif, created_at,
+                       'permis_temporaire' as type, 'Permis temporaire' as type_label
+                FROM permis_temporaire 
+                WHERE numero LIKE :search 
+                   OR motif LIKE :search 
+                   OR cible_type LIKE :search
+                   OR created_by LIKE :search
+                ORDER BY created_at DESC
+                LIMIT 20";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':search', $searchTerm);
+        $stmt->execute();
+        
+        $results = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $results[] = [
+                'id' => $row['id'],
+                'type' => $row['type'],
+                'type_label' => $row['type_label'],
+                'title' => 'Permis temporaire - ' . $row['numero'],
+                'subtitle' => 'Type: ' . ($row['cible_type'] ?: 'N/A') . ' | Motif: ' . substr($row['motif'], 0, 30),
+                'created_at' => $row['created_at'],
+                'data' => $row
+            ];
+        }
+        
+        return $results;
+    }
+    
+    private function searchTemoins($searchTerm) {
+        // Recherche dans TOUS les champs de la table temoins
+        $sql = "SELECT id, nom, telephone, age, lien_avec_accident, temoignage, created_at,
+                       'temoin' as type, 'Témoin' as type_label
+                FROM temoins 
+                WHERE nom LIKE :search 
+                   OR telephone LIKE :search 
+                   OR age LIKE :search
+                   OR lien_avec_accident LIKE :search
+                   OR temoignage LIKE :search
+                ORDER BY created_at DESC
+                LIMIT 20";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':search', $searchTerm);
+        $stmt->execute();
+        
+        $results = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $results[] = [
+                'id' => $row['id'],
+                'type' => $row['type'],
+                'type_label' => $row['type_label'],
+                'title' => 'Témoin - ' . $row['nom'],
+                'subtitle' => 'Tél: ' . ($row['telephone'] ?: 'N/A') . ' | Lien: ' . substr($row['lien_avec_accident'], 0, 30),
+                'created_at' => $row['created_at'],
+                'data' => $row
+            ];
+        }
+        
+        return $results;
+    }
+    
+    private function searchAssurances($searchTerm) {
+        // Recherche dans TOUS les champs de la table assurance_vehicule
+        $sql = "SELECT av.id, av.societe_assurance, av.nume_assurance, av.type_couverture, av.created_at,
+                       vp.plaque as vehicule_plaque,
+                       'assurance' as type, 'Assurance véhicule' as type_label
+                FROM assurance_vehicule av
+                LEFT JOIN vehicule_plaque vp ON av.vehicule_plaque_id = vp.id
+                WHERE av.societe_assurance LIKE :search 
+                   OR av.nume_assurance LIKE :search 
+                   OR av.type_couverture LIKE :search
+                   OR av.notes LIKE :search
+                   OR vp.plaque LIKE :search
+                ORDER BY av.created_at DESC
+                LIMIT 20";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':search', $searchTerm);
+        $stmt->execute();
+        
+        $results = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $results[] = [
+                'id' => $row['id'],
+                'type' => $row['type'],
+                'type_label' => $row['type_label'],
+                'title' => 'Assurance - ' . ($row['societe_assurance'] ?: 'N/A'),
+                'subtitle' => 'Police: ' . ($row['nume_assurance'] ?: 'N/A') . ' | Véhicule: ' . ($row['vehicule_plaque'] ?: 'N/A'),
+                'created_at' => $row['created_at'],
+                'data' => $row
+            ];
+        }
+        
+        return $results;
+    }
+    
     public function getDetails($type, $id) {
         try {
             switch ($type) {
@@ -228,10 +486,22 @@ class GlobalSearchController extends BaseController {
                     return $this->getContraventionDetails($id);
                 case 'accident':
                     return $this->getAccidentDetails($id);
+                case 'arrestation':
+                    return $this->getArrestationDetails($id);
+                case 'user':
+                    return $this->getUserDetails($id);
+                case 'avis_recherche':
+                    return $this->getAvisRechercheDetails($id);
+                case 'permis_temporaire':
+                    return $this->getPermisTemporaireDetails($id);
+                case 'temoin':
+                    return $this->getTemoinDetails($id);
+                case 'assurance':
+                    return $this->getAssuranceDetails($id);
                 default:
                     return [
                         'success' => false,
-                        'message' => 'Type non supporté'
+                        'message' => 'Type non supporté: ' . $type
                     ];
             }
         } catch (Exception $e) {
@@ -432,6 +702,132 @@ class GlobalSearchController extends BaseController {
             'related_data' => [
                 'temoins' => $temoins
             ]
+        ];
+    }
+    
+    private function getArrestationDetails($id) {
+        $sql = "SELECT a.*, p.nom as particulier_nom, p.gsm as particulier_gsm 
+                FROM arrestations a
+                LEFT JOIN particuliers p ON a.particulier_id = p.id
+                WHERE a.id = :id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+        $arrestation = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$arrestation) {
+            return ['success' => false, 'message' => 'Arrestation non trouvée'];
+        }
+        
+        return [
+            'success' => true,
+            'type' => 'arrestation',
+            'main_data' => $arrestation,
+            'related_data' => []
+        ];
+    }
+    
+    private function getUserDetails($id) {
+        $sql = "SELECT * FROM users WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$user) {
+            return ['success' => false, 'message' => 'Utilisateur non trouvé'];
+        }
+        
+        // Ne pas retourner le mot de passe
+        unset($user['password']);
+        
+        return [
+            'success' => true,
+            'type' => 'user',
+            'main_data' => $user,
+            'related_data' => []
+        ];
+    }
+    
+    private function getAvisRechercheDetails($id) {
+        $sql = "SELECT * FROM avis_recherche WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+        $avis = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$avis) {
+            return ['success' => false, 'message' => 'Avis de recherche non trouvé'];
+        }
+        
+        return [
+            'success' => true,
+            'type' => 'avis_recherche',
+            'main_data' => $avis,
+            'related_data' => []
+        ];
+    }
+    
+    private function getPermisTemporaireDetails($id) {
+        $sql = "SELECT * FROM permis_temporaire WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+        $permis = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$permis) {
+            return ['success' => false, 'message' => 'Permis temporaire non trouvé'];
+        }
+        
+        return [
+            'success' => true,
+            'type' => 'permis_temporaire',
+            'main_data' => $permis,
+            'related_data' => []
+        ];
+    }
+    
+    private function getTemoinDetails($id) {
+        $sql = "SELECT t.*, a.lieu as accident_lieu, a.date_accident 
+                FROM temoins t
+                LEFT JOIN accidents a ON t.id_accident = a.id
+                WHERE t.id = :id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+        $temoin = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$temoin) {
+            return ['success' => false, 'message' => 'Témoin non trouvé'];
+        }
+        
+        return [
+            'success' => true,
+            'type' => 'temoin',
+            'main_data' => $temoin,
+            'related_data' => []
+        ];
+    }
+    
+    private function getAssuranceDetails($id) {
+        $sql = "SELECT av.*, vp.plaque, vp.marque, vp.modele 
+                FROM assurance_vehicule av
+                LEFT JOIN vehicule_plaque vp ON av.vehicule_plaque_id = vp.id
+                WHERE av.id = :id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+        $assurance = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$assurance) {
+            return ['success' => false, 'message' => 'Assurance non trouvée'];
+        }
+        
+        return [
+            'success' => true,
+            'type' => 'assurance',
+            'main_data' => $assurance,
+            'related_data' => []
         ];
     }
 }

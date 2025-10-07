@@ -302,6 +302,18 @@ class GlobalSearchResultsScreen extends StatelessWidget {
         return Icons.receipt_long;
       case 'accident':
         return Icons.warning;
+      case 'arrestation':
+        return Icons.security;
+      case 'user':
+        return Icons.badge;
+      case 'avis_recherche':
+        return Icons.search;
+      case 'permis_temporaire':
+        return Icons.card_membership;
+      case 'temoin':
+        return Icons.visibility;
+      case 'assurance':
+        return Icons.shield;
       default:
         return Icons.help_outline;
     }
@@ -319,6 +331,18 @@ class GlobalSearchResultsScreen extends StatelessWidget {
         return 'Contraventions';
       case 'accident':
         return 'Accidents';
+      case 'arrestation':
+        return 'Arrestations';
+      case 'user':
+        return 'Utilisateurs';
+      case 'avis_recherche':
+        return 'Avis de recherche';
+      case 'permis_temporaire':
+        return 'Permis temporaires';
+      case 'temoin':
+        return 'Témoins';
+      case 'assurance':
+        return 'Assurances';
       default:
         return 'Autres';
     }

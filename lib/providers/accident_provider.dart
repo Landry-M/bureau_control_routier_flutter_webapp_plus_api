@@ -38,11 +38,16 @@ class AccidentProvider extends ChangeNotifier {
       final client = ApiClient(baseUrl: ApiConfig.baseUrl);
       final accidentService = AccidentService(apiClient: client);
 
+      print('DEBUG: Chargement des accidents - Page: $_currentPage, Limit: $_limit, Search: $_searchQuery');
+      print('DEBUG: URL de base: ${ApiConfig.baseUrl}');
+
       final newAccidents = await accidentService.getAccidents(
         page: _currentPage,
         limit: _limit,
         search: _searchQuery.isNotEmpty ? _searchQuery : null,
       );
+
+      print('DEBUG: Accidents récupérés: ${newAccidents.length}');
 
       if (newAccidents.length < _limit) {
         _hasMore = false;
@@ -51,7 +56,9 @@ class AccidentProvider extends ChangeNotifier {
       _accidents.addAll(newAccidents);
       _currentPage++;
       _loading = false;
+      print('DEBUG: Total accidents: ${_accidents.length}');
     } catch (e) {
+      print('DEBUG: Erreur lors du chargement des accidents: $e');
       _error = e.toString();
       _loading = false;
     }
@@ -90,10 +97,12 @@ class AccidentProvider extends ChangeNotifier {
       
       final accident = await accidentService.getAccidentById(id);
       final witnesses = await accidentService.getAccidentWitnesses(id);
+      final parties = await accidentService.getAccidentParties(id);
       
       return {
         ...accident,
         'temoins': witnesses,
+        'parties_impliquees': parties,
       };
     } catch (e) {
       throw Exception('Erreur lors du chargement des détails: $e');

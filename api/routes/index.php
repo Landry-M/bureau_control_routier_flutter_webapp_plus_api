@@ -2,14 +2,25 @@
 // Minimal router stub matching endpoints in lib/spec.md
 // Note: This is a simple placeholder router. Replace with a real framework later.
 
-header('Content-Type: application/json');
+// Configuration CORS pour accepter toutes les origines
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Auth-Token, X-API-Key');
+header('Access-Control-Max-Age: 86400'); // Cache preflight pour 24h
+header('Content-Type: application/json; charset=utf-8');
 
+// Gestion des requêtes OPTIONS (preflight)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
+    // Répondre immédiatement aux requêtes preflight
+    http_response_code(200);
     exit;
+}
+
+// Debug CORS - optionnel
+if (isset($_GET['debug_cors'])) {
+    error_log("CORS DEBUG - Origin: " . ($_SERVER['HTTP_ORIGIN'] ?? 'none'));
+    error_log("CORS DEBUG - Method: " . ($_SERVER['REQUEST_METHOD'] ?? 'none'));
+    error_log("CORS DEBUG - Headers: " . json_encode(getallheaders()));
 }
 
 require_once __DIR__ . '/../controllers/LogController.php';
@@ -957,6 +968,142 @@ switch (true) {
         }
         break;
 
+    // Recherche globale de véhicules (pour la barre de recherche)
+    case $method === 'GET' && $path === '/vehicules/search':
+        try {
+            $query = $_GET['q'] ?? '';
+            
+            if (empty($query)) {
+                echo json_encode([
+                    'ok' => true,
+                    'items' => [],
+                    'data' => []
+                ]);
+                break;
+            }
+            
+            $database = new Database();
+            $db = $database->getConnection();
+            if (!$db) { 
+                throw new Exception('DB connection failed'); 
+            }
+            
+            // Recherche dans plusieurs champs
+            $searchPattern = '%' . $query . '%';
+            $stmt = $db->prepare("
+                SELECT * FROM vehicule_plaque 
+                WHERE plaque LIKE :search 
+                   OR marque LIKE :search 
+                   OR modele LIKE :search 
+                   OR couleur LIKE :search
+                   OR proprietaire LIKE :search
+                   OR CAST(annee AS CHAR) LIKE :search
+                ORDER BY id DESC 
+                LIMIT 50
+            ");
+            $stmt->bindValue(':search', $searchPattern);
+            $stmt->execute();
+            
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Log de la recherche
+            LogController::record(
+                $_GET['username'] ?? 'system',
+                'Recherche globale véhicules',
+                [
+                    'query' => $query,
+                    'nb_results' => count($results)
+                ],
+                $_SERVER['REMOTE_ADDR'] ?? null,
+                $_SERVER['HTTP_USER_AGENT'] ?? null
+            );
+            
+            echo json_encode([
+                'ok' => true,
+                'items' => $results,
+                'data' => $results
+            ]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'ok' => false,
+                'error' => 'Erreur lors de la recherche: ' . $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Création rapide de véhicule (pour les accidents)
+    case $method === 'POST' && $path === '/vehicule/quick-create':
+        try {
+            require_once __DIR__ . '/../controllers/VehiculeController.php';
+            
+            $vehiculeController = new VehiculeController();
+            
+            // Récupérer les données
+            $plaque = $_POST['plaque'] ?? '';
+            $marque = $_POST['marque'] ?? '';
+            $modele = $_POST['modele'] ?? '';
+            $couleur = $_POST['couleur'] ?? '';
+            $annee = $_POST['annee'] ?? '';
+            $username = $_POST['username'] ?? 'system';
+            
+            // Validation des champs requis
+            if (empty(trim($plaque))) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Le numéro de plaque est requis'
+                ]);
+                break;
+            }
+            
+            // Vérifier l'unicité de la plaque
+            if ($vehiculeController->plaqueExists($plaque)) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Cette plaque d\'immatriculation existe déjà dans la base de données'
+                ]);
+                break;
+            }
+            
+            // Créer le véhicule avec les champs minimum
+            $result = $vehiculeController->quickCreate([
+                'plaque' => $plaque,
+                'marque' => $marque,
+                'modele' => $modele,
+                'couleur' => $couleur,
+                'annee' => $annee,
+                'username' => $username
+            ]);
+            
+            if ($result['success']) {
+                echo json_encode([
+                    'success' => true,
+                    'ok' => true,
+                    'id' => (int)$result['id'],
+                    'vehicule_id' => (int)$result['id'],
+                    'message' => 'Véhicule créé avec succès'
+                ]);
+            } else {
+                // Retourner 200 avec success=false pour les erreurs logiques
+                echo json_encode([
+                    'success' => false,
+                    'ok' => false,
+                    'error' => $result['message'] ?? 'Erreur lors de la création',
+                    'message' => $result['message'] ?? 'Erreur lors de la création'
+                ]);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Erreur lors de la création du véhicule: ' . $e->getMessage(),
+                'message' => 'Erreur lors de la création du véhicule: ' . $e->getMessage()
+            ]);
+        }
+        break;
+
     // Particulier - Vérifier l'unicité du nom
     case $method === 'GET' && $path === '/check-particulier-exists':
         try {
@@ -1211,12 +1358,6 @@ switch (true) {
             echo json_encode(['error' => 'Erreur lors de la création: ' . $e->getMessage()]);
         }
         break;
-    case $method === 'POST' && $path === '/particulier/create':
-        json_ok_logged('POST /particulier/create');
-        break;
-    case $method === 'POST' && path_match('/particulier/{id}/update', $path, $p):
-        json_ok_logged('POST /particulier/{id}/update', ['id' => $p[0] ?? null]);
-        break;
     
     // Récupérer un particulier par ID
     case $method === 'GET' && path_match('/particulier/{id}', $path, $p):
@@ -1411,45 +1552,6 @@ switch (true) {
         }
         break;
 
-    // Entreprise
-    case $method === 'POST' && $path === '/entreprise/create':
-        try {
-            $raw = file_get_contents('php://input');
-            $data = json_decode($raw, true);
-            if (!is_array($data)) { $data = []; }
-
-            $raison = trim((string)($data['raison_sociale'] ?? ''));
-            $adresse = trim((string)($data['adresse'] ?? ''));
-            if ($raison === '' || $adresse === '') {
-                http_response_code(400);
-                echo json_encode(['status'=>'error','message'=>'Champs requis manquants: raison_sociale, adresse']);
-                break;
-            }
-
-            $ent = new EntrepriseController();
-            $payload = [
-                'nom' => $raison,
-                'rccm' => $data['rccm'] ?? '',
-                'id_nat' => $data['id_nat'] ?? '',
-                'adresse' => $adresse,
-                'telephone' => $data['telephone'] ?? '',
-                'email' => $data['email'] ?? '',
-                'secteur_activite' => $data['type_activite'] ?? '',
-                // representant_legal supprimé côté client; fixer à vide pour compatibilité
-                'representant_legal' => '',
-            ];
-            $res = $ent->create($payload);
-            if ($res['success']) {
-                json_ok_logged('POST /entreprise/create', ['entreprise_id' => $res['id']]);
-            } else {
-                http_response_code(400);
-                echo json_encode(['status'=>'error','message'=>$res['message']]);
-            }
-        } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['status'=>'error','message'=>$e->getMessage()]);
-        }
-        break;
     case $method === 'POST' && path_match('/entreprise/{id}/update', $path, $p):
         try {
             if (!isset($p[0])) {
@@ -1776,6 +1878,36 @@ switch (true) {
             echo json_encode([
                 'success' => false,
                 'error' => 'Erreur lors de la récupération des témoins: ' . $e->getMessage()
+            ]);
+        }
+        break;
+
+    case $method === 'GET' && path_match('/accidents/{id}/parties', $path, $p):
+        try {
+            if (!isset($p[0])) {
+                throw new Exception('ID accident manquant');
+            }
+            $id = (int)$p[0];
+            $accidentController = new AccidentController();
+            $result = $accidentController->getPartiesImpliquees($id);
+            
+            if ($result['success']) {
+                echo json_encode([
+                    'success' => true,
+                    'data' => $result['data']
+                ]);
+            } else {
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'error' => $result['message']
+                ]);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Erreur lors de la récupération des parties impliquées: ' . $e->getMessage()
             ]);
         }
         break;
@@ -2313,7 +2445,14 @@ switch (true) {
         }
         break;
 
-    // Accident
+    // Accident - Nouveau système de rapport complet
+    case $method === 'POST' && $path === '/create-accident':
+        require_once __DIR__ . '/../controllers/AccidentRapportController.php';
+        $controller = new AccidentRapportController();
+        $controller->createRapport();
+        exit;
+        
+    // Accident - Ancien endpoint (conservé pour compatibilité)
     case $method === 'POST' && $path === '/accident/create':
         json_ok_logged('POST /accident/create');
         break;
@@ -3423,6 +3562,30 @@ switch (true) {
                 'message' => 'Erreur serveur: ' . $e->getMessage()
             ]);
         }
+        break;
+
+    // Route de test santé API
+    case $method === 'GET' && $path === '/health':
+        echo json_encode([
+            'status' => 'success',
+            'message' => 'API BCR fonctionne correctement',
+            'timestamp' => date('Y-m-d H:i:s'),
+            'version' => '1.0.0',
+            'database' => 'connected'
+        ]);
+        break;
+
+    // Route de test avec informations système
+    case $method === 'GET' && $path === '/test':
+        echo json_encode([
+            'status' => 'success',
+            'message' => 'Route de test API BCR',
+            'server_time' => date('Y-m-d H:i:s'),
+            'php_version' => PHP_VERSION,
+            'request_method' => $_SERVER['REQUEST_METHOD'],
+            'request_uri' => $_SERVER['REQUEST_URI'],
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
+        ]);
         break;
 
     default:

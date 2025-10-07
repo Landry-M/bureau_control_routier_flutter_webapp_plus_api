@@ -166,10 +166,7 @@ class AccidentController extends BaseController {
      */
     public function getById($id) {
         try {
-            $query = "SELECT a.*, u.nom as agent_nom 
-                     FROM {$this->table} a
-                     LEFT JOIN users u ON a.agent_id = u.id
-                     WHERE a.id = :id LIMIT 1";
+            $query = "SELECT * FROM {$this->table} WHERE id = :id LIMIT 1";
             
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':id', $id);
@@ -177,9 +174,6 @@ class AccidentController extends BaseController {
             
             if ($stmt->rowCount() > 0) {
                 $data = $stmt->fetch(PDO::FETCH_ASSOC);
-                // Decode JSON fields
-                $data['vehicules_impliques'] = json_decode($data['vehicules_impliques'], true);
-                $data['victimes'] = json_decode($data['victimes'], true);
                 
                 return [
                     'success' => true,
@@ -195,6 +189,71 @@ class AccidentController extends BaseController {
             return [
                 'success' => false,
                 'message' => 'Erreur lors de la récupération: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Get witnesses for an accident
+     */
+    public function getWitnesses($accidentId) {
+        try {
+            $query = "SELECT * FROM temoins WHERE id_accident = :accident_id ORDER BY created_at DESC";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':accident_id', $accidentId);
+            $stmt->execute();
+            
+            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            return [
+                'success' => true,
+                'data' => $data
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des témoins: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Get parties impliquées for an accident
+     */
+    public function getPartiesImpliquees($accidentId) {
+        try {
+            $query = "SELECT pi.*, vp.plaque, vp.marque, vp.modele, vp.couleur 
+                     FROM parties_impliquees pi
+                     LEFT JOIN vehicule_plaque vp ON pi.vehicule_plaque_id = vp.id
+                     WHERE pi.accident_id = :accident_id 
+                     ORDER BY pi.created_at DESC";
+            
+            $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':accident_id', $accidentId);
+            $stmt->execute();
+            
+            $parties = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Récupérer les passagers pour chaque partie
+            foreach ($parties as &$partie) {
+                $passagersQuery = "SELECT * FROM passagers_partie WHERE partie_id = :partie_id ORDER BY created_at";
+                $passagersStmt = $this->db->prepare($passagersQuery);
+                $passagersStmt->bindParam(':partie_id', $partie['id']);
+                $passagersStmt->execute();
+                $partie['passagers'] = $passagersStmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+            
+            return [
+                'success' => true,
+                'data' => $parties
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erreur lors de la récupération des parties impliquées: ' . $e->getMessage()
             ];
         }
     }

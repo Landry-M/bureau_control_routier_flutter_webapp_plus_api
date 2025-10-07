@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -6,7 +6,7 @@ import 'package:toastification/toastification.dart';
 import '../models/accident_models.dart';
 import '../services/accident_api_service.dart';
 import 'temoin_modal.dart';
-import 'vehicule_implique_modal.dart';
+import 'partie_impliquee_modal.dart';
 
 class RapportAccidentModal extends StatefulWidget {
   const RapportAccidentModal({super.key});
@@ -26,14 +26,21 @@ class _RapportAccidentModalState extends State<RapportAccidentModal> {
   
   List<XFile> _selectedImages = [];
   List<Temoin> _temoins = [];
-  List<VehiculeImplique> _vehiculesImpliques = [];
+  List<PartieImpliquee> _partiesImpliquees = [];
+  List<Map<String, dynamic>> _partiesPhotos = []; // Stocke les photos pour chaque partie
+  List<String> _servicesEtat = [];
+  int? _partieFautiveIndex;
+  final _raisonFauteController = TextEditingController();
   
   bool _isSubmitting = false;
+  
+  static const int maxParties = 4;
 
   @override
   void dispose() {
     _lieuController.dispose();
     _descriptionController.dispose();
+    _raisonFauteController.dispose();
     super.dispose();
   }
 
@@ -158,25 +165,58 @@ class _RapportAccidentModalState extends State<RapportAccidentModal> {
     setState(() => _temoins.removeAt(index));
   }
 
-  Future<void> _showVehiculeModal() async {
-    final vehicule = await showDialog<VehiculeImplique>(
+  Future<void> _showPartieModal() async {
+    if (_partiesImpliquees.length >= maxParties) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        style: ToastificationStyle.fillColored,
+        title: const Text('Maximum de 4 parties atteint'),
+        autoCloseDuration: const Duration(seconds: 2),
+      );
+      return;
+    }
+    
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => VehiculeImpliqueModal(apiService: _apiService),
+      builder: (context) => PartieImpliqueeModal(apiService: _apiService),
     );
-    if (vehicule != null) {
-      setState(() => _vehiculesImpliques.add(vehicule));
+    
+    if (result != null) {
+      setState(() {
+        _partiesImpliquees.add(result['partie'] as PartieImpliquee);
+        _partiesPhotos.add({'photos': result['photos'] as List<XFile>});
+      });
       toastification.show(
         context: context,
         type: ToastificationType.success,
         style: ToastificationStyle.fillColored,
-        title: const Text('Véhicule ajouté'),
+        title: const Text('Partie ajoutée'),
         autoCloseDuration: const Duration(seconds: 2),
       );
     }
   }
 
-  void _removeVehicule(int index) {
-    setState(() => _vehiculesImpliques.removeAt(index));
+  void _removePartie(int index) {
+    setState(() {
+      _partiesImpliquees.removeAt(index);
+      _partiesPhotos.removeAt(index);
+      if (_partieFautiveIndex == index) {
+        _partieFautiveIndex = null;
+      } else if (_partieFautiveIndex != null && _partieFautiveIndex! > index) {
+        _partieFautiveIndex = _partieFautiveIndex! - 1;
+      }
+    });
+  }
+  
+  void _toggleServiceEtat(String service) {
+    setState(() {
+      if (_servicesEtat.contains(service)) {
+        _servicesEtat.remove(service);
+      } else {
+        _servicesEtat.add(service);
+      }
+    });
   }
 
   Future<void> _submitAccident() async {
@@ -200,14 +240,16 @@ class _RapportAccidentModalState extends State<RapportAccidentModal> {
         gravite: _gravite,
         description: _descriptionController.text.trim(),
         temoins: _temoins,
-        vehiculesImpliques: _vehiculesImpliques,
+        partiesImpliquees: _partiesImpliquees,
+        servicesEtatPresent: _servicesEtat,
+        partieFautiveId: _partieFautiveIndex != null ? _partieFautiveIndex! + 1 : null,
+        raisonFaute: _raisonFauteController.text.trim(),
       );
-
-      final images = _selectedImages.map((xfile) => File(xfile.path)).toList();
 
       final result = await _apiService.createAccident(
         accident: accident,
-        images: images,
+        images: _selectedImages,
+        partiesPhotos: _partiesPhotos,
       );
 
       if (result['state'] == true || result['success'] == true) {
@@ -410,11 +452,26 @@ class _RapportAccidentModalState extends State<RapportAccidentModal> {
                                 children: [
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(8),
-                                    child: Image.file(
-                                      File(_selectedImages[index].path),
-                                      width: 100,
-                                      height: 100,
-                                      fit: BoxFit.cover,
+                                    child: FutureBuilder<Uint8List>(
+                                      future: _selectedImages[index].readAsBytes(),
+                                      builder: (context, snapshot) {
+                                        if (snapshot.hasData) {
+                                          return Image.memory(
+                                            snapshot.data!,
+                                            width: 100,
+                                            height: 100,
+                                            fit: BoxFit.cover,
+                                          );
+                                        }
+                                        return Container(
+                                          width: 100,
+                                          height: 100,
+                                          color: Colors.grey[800],
+                                          child: const Center(
+                                            child: CircularProgressIndicator(),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ),
                                   Positioned(
@@ -478,58 +535,127 @@ class _RapportAccidentModalState extends State<RapportAccidentModal> {
                     ],
                     const SizedBox(height: 24),
                     
-                    // Véhicules impliqués
-                    _buildSectionTitle('Véhicules impliqués', Icons.directions_car_outlined),
+                    // Parties impliquées
+                    _buildSectionTitle('Parties impliquées (max 4)', Icons.directions_car_outlined),
                     const SizedBox(height: 12),
                     ElevatedButton.icon(
-                      onPressed: _showVehiculeModal,
+                      onPressed: _partiesImpliquees.length < maxParties ? _showPartieModal : null,
                       icon: const Icon(Icons.add),
-                      label: const Text('Ajouter un véhicule'),
+                      label: Text('Ajouter une partie (${_partiesImpliquees.length}/$maxParties)'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.indigo,
                         foregroundColor: Colors.white,
                       ),
                     ),
-                    if (_vehiculesImpliques.isNotEmpty) ...[
+                    if (_partiesImpliquees.isNotEmpty) ...[
                       const SizedBox(height: 12),
-                      ..._vehiculesImpliques.asMap().entries.map((entry) {
+                      ..._partiesImpliquees.asMap().entries.map((entry) {
                         final index = entry.key;
-                        final vehicule = entry.value;
+                        final partie = entry.value;
+                        final photosCount = (_partiesPhotos[index]['photos'] as List).length;
                         return Card(
                           color: theme.colorScheme.surfaceContainer,
                           margin: const EdgeInsets.only(bottom: 8),
                           child: ListTile(
                             leading: const Icon(Icons.directions_car, color: Colors.white),
                             title: Text(
-                              vehicule.plaque ?? 'N/A',
+                              partie.plaque ?? 'N/A',
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                             ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '${vehicule.marque ?? ''} ${vehicule.modele ?? ''}',
+                                  '${partie.marque ?? ''} ${partie.modele ?? ''}',
                                   style: const TextStyle(color: Colors.white70),
                                 ),
                                 Text(
-                                  'Rôle: ${vehicule.role?.label ?? 'N/A'}',
+                                  'Rôle: ${partie.role.label} | Conducteur: ${partie.conducteurNom ?? 'N/A'}',
                                   style: const TextStyle(color: Colors.white60, fontSize: 12),
                                 ),
-                                if (vehicule.dommages != null && vehicule.dommages!.isNotEmpty)
-                                  Text(
-                                    'Dommages: ${vehicule.dommages}',
-                                    style: const TextStyle(color: Colors.white60, fontSize: 12),
-                                  ),
+                                Text(
+                                  'Passagers: ${partie.passagers.length} | Photos: $photosCount',
+                                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                                ),
                               ],
                             ),
                             isThreeLine: true,
                             trailing: IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _removeVehicule(index),
+                              onPressed: () => _removePartie(index),
                             ),
                           ),
                         );
                       }),
+                    ],
+                    const SizedBox(height: 24),
+                    
+                    // Services de l'État présents
+                    _buildSectionTitle('Services de l\'État présents', Icons.local_police),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildServiceChip('Police', Icons.local_police),
+                        _buildServiceChip('Ambulance', Icons.local_hospital),
+                        _buildServiceChip('Pompiers', Icons.local_fire_department),
+                        _buildServiceChip('Gendarmerie', Icons.shield),
+                        _buildServiceChip('Protection civile', Icons.health_and_safety),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // Responsabilité
+                    _buildSectionTitle('Responsabilité', Icons.gavel),
+                    const SizedBox(height: 12),
+                    if (_partiesImpliquees.isNotEmpty) ...[
+                      DropdownButtonFormField<int>(
+                        value: _partieFautiveIndex,
+                        style: const TextStyle(color: Colors.white),
+                        dropdownColor: theme.scaffoldBackgroundColor,
+                        decoration: const InputDecoration(
+                          labelText: 'Partie responsable',
+                          labelStyle: TextStyle(color: Colors.white70),
+                          border: OutlineInputBorder(),
+                        ),
+                        items: [
+                          const DropdownMenuItem<int>(
+                            value: null,
+                            child: Text('Indéterminé', style: TextStyle(color: Colors.white70)),
+                          ),
+                          ..._partiesImpliquees.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final partie = entry.value;
+                            return DropdownMenuItem<int>(
+                              value: index,
+                              child: Text(
+                                '${partie.plaque ?? 'N/A'} (${partie.marque ?? ''})',
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            );
+                          }),
+                        ],
+                        onChanged: (v) => setState(() => _partieFautiveIndex = v),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _raisonFauteController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: const InputDecoration(
+                          labelText: 'Raison/Explication de la responsabilité',
+                          labelStyle: TextStyle(color: Colors.white70),
+                          border: OutlineInputBorder(),
+                          hintText: 'Ex: Non-respect du stop, excès de vitesse...',
+                          hintStyle: TextStyle(color: Colors.white30),
+                        ),
+                        maxLines: 3,
+                      ),
+                    ] else ...[
+                      const Text(
+                        'Ajoutez au moins une partie impliquée pour définir la responsabilité',
+                        style: TextStyle(color: Colors.white60, fontStyle: FontStyle.italic),
+                      ),
                     ],
                   ],
                 ),
@@ -584,6 +710,33 @@ class _RapportAccidentModalState extends State<RapportAccidentModal> {
           ),
         ),
       ],
+    );
+  }
+  
+  Widget _buildServiceChip(String service, IconData icon) {
+    final isSelected = _servicesEtat.contains(service);
+    return FilterChip(
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: isSelected ? Colors.white : Colors.white70),
+          const SizedBox(width: 4),
+          Text(service),
+        ],
+      ),
+      selected: isSelected,
+      onSelected: (_) => _toggleServiceEtat(service),
+      selectedColor: Theme.of(context).colorScheme.primary,
+      checkmarkColor: Colors.white,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : Colors.white70,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
+      backgroundColor: Colors.grey[800],
+      side: BorderSide(
+        color: isSelected ? Theme.of(context).colorScheme.primary : Colors.white30,
+        width: 1,
+      ),
     );
   }
 }

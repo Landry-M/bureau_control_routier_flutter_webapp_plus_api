@@ -622,5 +622,85 @@ class VehiculeController extends BaseController {
             ];
         }
     }
+
+    /**
+     * Création rapide d'un véhicule avec champs minimum (pour les accidents)
+     */
+    public function quickCreate($data) {
+        try {
+            require_once __DIR__ . '/LogController.php';
+            
+            $f = function($key) use ($data) {
+                return isset($data[$key]) && $data[$key] !== '' ? $data[$key] : null;
+            };
+
+            $this->db->beginTransaction();
+
+            // Insert into vehicule_plaque avec champs minimum
+            $stmt = $this->db->prepare("INSERT INTO vehicule_plaque (
+                plaque, marque, modele, couleur, annee, 
+                en_circulation, created_at
+            ) VALUES (
+                :plaque, :marque, :modele, :couleur, :annee,
+                '1', NOW()
+            )");
+
+            $plaque = $data['plaque'];
+            $marque = $f('marque');
+            $modele = $f('modele');
+            $couleur = $f('couleur');
+            $annee = $f('annee');
+            
+            $stmt->bindParam(':plaque', $plaque);
+            $stmt->bindParam(':marque', $marque);
+            $stmt->bindParam(':modele', $modele);
+            $stmt->bindParam(':couleur', $couleur);
+            $stmt->bindParam(':annee', $annee);
+
+            if (!$stmt->execute()) {
+                $this->db->rollback();
+                return [
+                    'success' => false,
+                    'message' => 'Erreur lors de la création du véhicule'
+                ];
+            }
+
+            $vehicleId = $this->db->lastInsertId();
+
+            // Log de la création
+            LogController::record(
+                $f('username') ?: 'system',
+                'Création rapide véhicule',
+                [
+                    'vehicule_id' => $vehicleId,
+                    'plaque' => $data['plaque'],
+                    'marque' => $f('marque'),
+                    'modele' => $f('modele'),
+                    'couleur' => $f('couleur'),
+                    'annee' => $f('annee'),
+                    'action' => 'quick_create'
+                ],
+                $_SERVER['REMOTE_ADDR'] ?? null,
+                $_SERVER['HTTP_USER_AGENT'] ?? null
+            );
+
+            $this->db->commit();
+
+            return [
+                'success' => true,
+                'message' => 'Véhicule créé avec succès',
+                'id' => $vehicleId
+            ];
+
+        } catch (Exception $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollback();
+            }
+            return [
+                'success' => false,
+                'message' => 'Erreur lors de la création: ' . $e->getMessage()
+            ];
+        }
+    }
 }
 ?>

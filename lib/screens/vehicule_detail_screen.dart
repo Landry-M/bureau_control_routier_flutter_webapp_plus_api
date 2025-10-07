@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 import '../widgets/top_bar.dart';
 import '../utils/responsive.dart';
 import '../services/vehicule_service.dart';
 import '../services/notification_service.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/vehicule_actions_modal.dart';
+import '../widgets/vehicule_details_modal.dart';
+import '../widgets/edit_vehicule_modal.dart';
+import '../widgets/retirer_plaque_modal.dart';
+import '../widgets/plaque_temporaire_modal.dart';
+import '../widgets/transfert_proprietaire_modal.dart';
+import '../widgets/emettre_avis_recherche_modal.dart';
+import '../config/api_config.dart';
+import 'package:toastification/toastification.dart';
 
 class VehiculeDetailScreen extends StatefulWidget {
   const VehiculeDetailScreen({super.key, required this.id});
@@ -75,45 +86,30 @@ class _VehiculeDetailScreenState extends State<VehiculeDetailScreen> {
                     const SizedBox(width: 4),
                     Text('Détail véhicule', style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
                     const Spacer(),
-                    PopupMenuButton<String>(
-                      tooltip: 'Actions',
-                      onSelected: (value) {
-                        switch (value) {
-                          case 'edit':
-                            if (isSuper) {
-                              NotificationService.info(context, 'Modifier véhicule (à implémenter)');
-                            }
-                            break;
-                          case 'assign_cv':
-                            NotificationService.info(context, 'Assigner une contravention (à implémenter)');
-                            break;
-                        }
-                      },
-                      itemBuilder: (_) {
-                        final items = <PopupMenuEntry<String>>[];
-                        if (isSuper) {
-                          items.add(const PopupMenuItem(value: 'edit', child: Text('Modifier les informations')));
-                          items.add(const PopupMenuDivider());
-                        }
-                        items.add(const PopupMenuItem(value: 'assign_cv', child: Text('Assigner une contravention')));
-                        return items;
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: cs.outline.withValues(alpha: 0.2)),
-                          borderRadius: BorderRadius.circular(8),
+                    if (_veh != null) ...[
+                      // Bouton voir détails complets
+                      IconButton(
+                        tooltip: 'Voir détails complets',
+                        icon: const Icon(Icons.info_outline),
+                        onPressed: () => _showVehiculeDetails(_veh!),
+                      ),
+                      // Bouton modifier (superadmin uniquement)
+                      if (isSuper)
+                        IconButton(
+                          tooltip: 'Modifier',
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () => _showEditModal(_veh!),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.more_vert),
-                            SizedBox(width: 4),
-                            Text('Actions'),
-                          ],
+                      // Bouton actions
+                      ElevatedButton.icon(
+                        onPressed: () => _showActionsModal(_veh!),
+                        icon: const Icon(Icons.more_vert),
+                        label: const Text('Actions'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         ),
                       ),
-                    )
+                    ]
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -202,5 +198,137 @@ class _VehiculeDetailScreenState extends State<VehiculeDetailScreen> {
         ),
       ),
     );
+  }
+
+  // Afficher la modal de détails complets
+  void _showVehiculeDetails(Map<String, dynamic> vehicule) {
+    showDialog(
+      context: context,
+      builder: (context) => VehiculeDetailsModal(vehicule: vehicule),
+    );
+  }
+
+  // Afficher la modal de modification
+  void _showEditModal(Map<String, dynamic> vehicule) {
+    showDialog(
+      context: context,
+      builder: (context) => EditVehiculeModal(vehicule: vehicule),
+    ).then((_) => _load()); // Recharger après modification
+  }
+
+  // Afficher la modal d'actions
+  void _showActionsModal(Map<String, dynamic> vehicule) {
+    showDialog(
+      context: context,
+      builder: (context) => VehiculeActionsModal(
+        vehicule: vehicule,
+        onSanctionner: () {
+          Navigator.of(context).pop();
+          NotificationService.info(context, 'Assigner une contravention (à implémenter)');
+        },
+        onChangerProprietaire: () async {
+          Navigator.of(context).pop();
+          await showDialog(
+            context: context,
+            builder: (context) => TransfertProprietaireModal(vehicule: vehicule),
+          );
+          _load();
+        },
+        onRetirerVehicule: () async {
+          Navigator.of(context).pop();
+          await _retirerVehiculeCirculation(vehicule);
+        },
+        onRetirerPlaque: () async {
+          Navigator.of(context).pop();
+          await showDialog(
+            context: context,
+            builder: (context) => RetirerPlaqueModal(vehicule: vehicule),
+          );
+          _load();
+        },
+        onPlaqueTemporaire: () async {
+          Navigator.of(context).pop();
+          await showDialog(
+            context: context,
+            builder: (context) => PlaqueTemporaireModal(vehicule: vehicule),
+          );
+        },
+        onEmettreAvis: () async {
+          Navigator.of(context).pop();
+          await showDialog(
+            context: context,
+            builder: (context) => EmettreAvisRechercheModal(
+              cible: vehicule,
+              cibleType: 'vehicule_plaque',
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // Retirer le véhicule de la circulation
+  Future<void> _retirerVehiculeCirculation(Map<String, dynamic> vehicule) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmer le retrait'),
+        content: Text(
+          'Voulez-vous vraiment retirer le véhicule ${vehicule['plaque']} de la circulation ?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Retirer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    try {
+      final username = context.read<AuthProvider>().username;
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/vehicule/${vehicule['id']}/retirer-circulation'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'username': username}),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Véhicule retiré'),
+          description: const Text('Le véhicule a été retiré de la circulation avec succès'),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 3),
+          showProgressBar: true,
+        );
+        _load();
+      } else {
+        throw Exception('Erreur HTTP ${response.statusCode}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        style: ToastificationStyle.fillColored,
+        title: const Text('Erreur'),
+        description: Text('Impossible de retirer le véhicule: $e'),
+        alignment: Alignment.topRight,
+        autoCloseDuration: const Duration(seconds: 4),
+        showProgressBar: true,
+      );
+    }
   }
 }

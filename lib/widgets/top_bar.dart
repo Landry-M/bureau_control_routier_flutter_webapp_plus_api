@@ -46,7 +46,8 @@ class _TopBarState extends State<TopBar> {
     if (q.isEmpty) return;
     try {
       final service = VehiculeService();
-      final results = await service.searchLocal(q);
+      final username = context.read<AuthProvider>().username;
+      final results = await service.searchLocal(q, username: username);
       if (!mounted) return;
       if (results.isEmpty) {
         // Open creation modal with prefilled plaque

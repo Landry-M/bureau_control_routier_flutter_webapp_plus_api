@@ -6,26 +6,38 @@ class ApiConfig {
   static const String _localhost = 'localhost:8000';
   static const String _androidEmulator = '10.0.2.2:8000';
   static const String _iosSimulator = 'localhost:8000';
+  static const String _production = 'controls.heaventech.net';
   
   /// Retourne l'URL de base appropriée selon la plateforme
   static String get baseUrl {
-    if (kIsWeb) {
-      // Application web - utilise localhost
+    // Détection automatique : si on est sur le domaine de production, utiliser l'API relative (même domaine)
+    if (kIsWeb && Uri.base.host.contains('heaventech.net')) {
+      print('DEBUG: Utilisation API production - ${Uri.base.host}');
+      return '/api/routes/index.php'; // URL RELATIVE - pas de CORS !
+    }
+    
+    if (kDebugMode) {
+      // Mode développement - utilise localhost
+      if (kIsWeb) {
+        return 'http://$_localhost/api/routes/index.php';
+      }
+      
+      if (Platform.isAndroid) {
+        // Émulateur Android - utilise 10.0.2.2
+        return 'http://$_androidEmulator/api/routes/index.php';
+      }
+      
+      if (Platform.isIOS) {
+        // Simulateur iOS - utilise localhost
+        return 'http://$_iosSimulator/api/routes/index.php';
+      }
+      
+      // Desktop (macOS, Windows, Linux) - utilise localhost
       return 'http://$_localhost/api/routes/index.php';
+    } else {
+      // Mode production - utilise le domaine de production
+      return 'https://$_production/api/routes/index.php';
     }
-    
-    if (Platform.isAndroid) {
-      // Émulateur Android - utilise 10.0.2.2
-      return 'http://$_androidEmulator/api/routes/index.php';
-    }
-    
-    if (Platform.isIOS) {
-      // Simulateur iOS - utilise localhost
-      return 'http://$_iosSimulator/api/routes/index.php';
-    }
-    
-    // Desktop (macOS, Windows, Linux) - utilise localhost
-    return 'http://$_localhost/api/routes/index.php';
   }
   
   /// URL pour émulateur Android
@@ -39,19 +51,30 @@ class ApiConfig {
   
   /// URL de base pour les images et fichiers statiques (sans /api/routes/index.php)
   static String get imageBaseUrl {
-    if (kIsWeb) {
+    // Détection automatique : si on est sur le domaine de production, utiliser l'URL relative
+    if (kIsWeb && Uri.base.host.contains('heaventech.net')) {
+      return ''; // URL RELATIVE - même domaine, pas de CORS !
+    }
+    
+    if (kDebugMode) {
+      // Mode développement - utilise localhost
+      if (kIsWeb) {
+        return 'http://$_localhost';
+      }
+      
+      if (Platform.isAndroid) {
+        return 'http://$_androidEmulator';
+      }
+      
+      if (Platform.isIOS) {
+        return 'http://$_iosSimulator';
+      }
+      
       return 'http://$_localhost';
+    } else {
+      // Mode production - utilise le domaine de production
+      return 'https://$_production';
     }
-    
-    if (Platform.isAndroid) {
-      return 'http://$_androidEmulator';
-    }
-    
-    if (Platform.isIOS) {
-      return 'http://$_iosSimulator';
-    }
-    
-    return 'http://$_localhost';
   }
 
   /// Méthode pour forcer une URL spécifique (utile pour les tests)

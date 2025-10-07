@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../services/notification_service.dart';
 import '../utils/responsive.dart';
 import '../widgets/vehicule_creation_modal.dart';
 import '../widgets/top_bar.dart';
 import '../widgets/create_entreprise_modal.dart';
 import '../widgets/create_particulier_modal.dart';
 import '../widgets/conducteur_vehicule_modal.dart';
+import '../widgets/rapport_accident_modal.dart';
 
 class CreateDossierScreen extends StatelessWidget {
   const CreateDossierScreen({super.key});
@@ -92,12 +92,7 @@ class CreateDossierScreen extends StatelessWidget {
                       title: 'Rapport de l\'accident',
                       description:
                           'Créer un dossier pour un rapport d\'accident.',
-                      onTap: () {
-                        NotificationService.info(
-                          context,
-                          'Fonctionnalité à implémenter',
-                        );
-                      },
+                      onTap: () => _showRapportAccidentModal(context),
                     ),
                   ],
                 ),
@@ -138,6 +133,14 @@ class CreateDossierScreen extends StatelessWidget {
       context: context,
       barrierDismissible: false,
       builder: (context) => const ConducteurVehiculeModal(),
+    );
+  }
+
+  void _showRapportAccidentModal(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const RapportAccidentModal(),
     );
   }
 }

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test CORS - BCR API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { border-color: #4CAF50; background-color: #f1f8e9; }
+        .error { border-color: #f44336; background-color: #ffebee; }
+        .warning { border-color: #ff9800; background-color: #fff3e0; }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #1976D2; }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .status {
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+        .status.pass { background: #4CAF50; color: white; }
+        .status.fail { background: #f44336; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 Test CORS - BCR API</h1>
+        <p>Cette page teste si votre API accepte correctement les requêtes cross-origin.</p>
+        
+        <div class="test-section">
+            <h3>Configuration API</h3>
+            <label for="apiUrl">URL de base de l'API:</label>
+            <input type="text" id="apiUrl" value="http://localhost:8000/api/routes/index.php" style="width: 400px; padding: 5px;">
+        </div>
+
+        <div class="test-section">
+            <h3>Tests CORS</h3>
+            <button onclick="testCorsBasic()">Test CORS Basique</button>
+            <button onclick="testCorsWithAuth()">Test avec Headers Auth</button>
+            <button onclick="testPreflightOptions()">Test Preflight OPTIONS</button>
+            <button onclick="testAuthLogin()">Test Login API</button>
+            <button onclick="clearResults()">Effacer les résultats</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function getApiUrl() {
+            return document.getElementById('apiUrl').value.trim();
+        }
+
+        function addResult(title, status, message, details = null) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-section ${status}`;
+            
+            let html = `
+                <h4>${title} <span class="status ${status}">${status.toUpperCase()}</span></h4>
+                <p>${message}</p>
+            `;
+            
+            if (details) {
+                html += `<pre>${JSON.stringify(details, null, 2)}</pre>`;
+            }
+            
+            div.innerHTML = html;
+            results.appendChild(div);
+        }
+
+        async function testCorsBasic() {
+            const apiUrl = getApiUrl();
+            try {
+                console.log('Testing basic CORS to:', apiUrl + '/test_cors.php');
+                
+                const response = await fetch(apiUrl + '/test_cors.php', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult(
+                        'Test CORS Basique', 
+                        'success', 
+                        'CORS fonctionne ! L\'API accepte les requêtes cross-origin.',
+                        data
+                    );
+                } else {
+                    addResult(
+                        'Test CORS Basique', 
+                        'error', 
+                        `Erreur HTTP ${response.status}: ${response.statusText}`
+                    );
+                }
+            } catch (error) {
+                addResult(
+                    'Test CORS Basique', 
+                    'error', 
+                    'Erreur CORS: ' + error.message,
+                    { error: error.toString() }
+                );
+            }
+        }
+
+        async function testCorsWithAuth() {
+            const apiUrl = getApiUrl();
+            try {
+                const response = await fetch(apiUrl + '/test_cors.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer test-token',
+                        'X-Auth-Token': 'test-auth-token'
+                    },
+                    body: JSON.stringify({ test: 'cors_with_auth' })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult(
+                        'Test CORS avec Auth Headers', 
+                        'success', 
+                        'CORS avec headers d\'authentification fonctionne !',
+                        data
+                    );
+                } else {
+                    addResult(
+                        'Test CORS avec Auth Headers', 
+                        'error', 
+                        `Erreur HTTP ${response.status}: ${response.statusText}`
+                    );
+                }
+            } catch (error) {
+                addResult(
+                    'Test CORS avec Auth Headers', 
+                    'error', 
+                    'Erreur: ' + error.message
+                );
+            }
+        }
+
+        async function testPreflightOptions() {
+            const apiUrl = getApiUrl();
+            try {
+                const response = await fetch(apiUrl + '/test_cors.php', {
+                    method: 'OPTIONS'
+                });
+                
+                if (response.ok || response.status === 204) {
+                    addResult(
+                        'Test Preflight OPTIONS', 
+                        'success', 
+                        'Requête preflight OPTIONS fonctionne !',
+                        {
+                            status: response.status,
+                            headers: Object.fromEntries(response.headers.entries())
+                        }
+                    );
+                } else {
+                    addResult(
+                        'Test Preflight OPTIONS', 
+                        'error', 
+                        `Erreur HTTP ${response.status}: ${response.statusText}`
+                    );
+                }
+            } catch (error) {
+                addResult(
+                    'Test Preflight OPTIONS', 
+                    'error', 
+                    'Erreur: ' + error.message
+                );
+            }
+        }
+
+        async function testAuthLogin() {
+            const apiUrl = getApiUrl();
+            try {
+                const response = await fetch(apiUrl + '/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        matricule: 'test',
+                        password: 'test'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok || response.status === 400 || response.status === 401) {
+                    // 400/401 sont attendus avec des credentials invalides, mais montrent que CORS fonctionne
+                    addResult(
+                        'Test Login API', 
+                        'success', 
+                        'Endpoint de login accessible via CORS (credentials invalides attendus)',
+                        data
+                    );
+                } else {
+                    addResult(
+                        'Test Login API', 
+                        'warning', 
+                        `Réponse inattendue: ${response.status}`,
+                        data
+                    );
+                }
+            } catch (error) {
+                addResult(
+                    'Test Login API', 
+                    'error', 
+                    'Erreur CORS sur l\'endpoint de login: ' + error.message
+                );
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        // Test automatique au chargement de la page
+        window.onload = function() {
+            addResult(
+                'Information', 
+                'warning', 
+                'Assurez-vous que votre serveur API est démarré avant de lancer les tests.',
+                {
+                    instructions: [
+                        '1. Démarrez votre serveur PHP (ex: php -S localhost:8000)',
+                        '2. Vérifiez l\'URL de base de l\'API ci-dessus',
+                        '3. Cliquez sur les boutons de test'
+                    ]
+                }
+            );
+        };
+    </script>
+</body>
+</html>

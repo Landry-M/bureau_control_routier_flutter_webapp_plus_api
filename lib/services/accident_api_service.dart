@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import '../models/accident_models.dart';
 import '../config/api_config.dart';
 
@@ -13,7 +13,8 @@ class AccidentApiService {
   /// Créer un accident
   Future<Map<String, dynamic>> createAccident({
     required Accident accident,
-    required List<File> images,
+    required List<XFile> images,
+    List<Map<String, dynamic>>? partiesPhotos,
   }) async {
     try {
       var request = http.MultipartRequest(
@@ -27,11 +28,33 @@ class AccidentApiService {
         request.fields[key] = value.toString();
       });
 
-      // Ajouter les images
-      for (var image in images) {
+      // Ajouter les images principales de l'accident (compatible Flutter Web)
+      for (var i = 0; i < images.length; i++) {
+        final bytes = await images[i].readAsBytes();
         request.files.add(
-          await http.MultipartFile.fromPath('images[]', image.path),
+          http.MultipartFile.fromBytes(
+            'images[]',
+            bytes,
+            filename: images[i].name,
+          ),
         );
+      }
+
+      // Ajouter les photos de chaque partie impliquée
+      if (partiesPhotos != null) {
+        for (var i = 0; i < partiesPhotos.length; i++) {
+          final photos = partiesPhotos[i]['photos'] as List<XFile>;
+          for (var photo in photos) {
+            final bytes = await photo.readAsBytes();
+            request.files.add(
+              http.MultipartFile.fromBytes(
+                'partie_${i}_photos[]',
+                bytes,
+                filename: photo.name,
+              ),
+            );
+          }
+        }
       }
 
       final response = await request.send();
@@ -47,16 +70,15 @@ class AccidentApiService {
   /// Rechercher un véhicule par plaque
   Future<List<VehiculeImplique>> searchVehicle(String plaque) async {
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/accident/search-vehicle'),
+      final response = await http.get(
+        Uri.parse('$baseUrl/vehicules/search?q=${Uri.encodeComponent(plaque)}'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'plaque': plaque}),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['success'] == true && data['vehicles'] != null) {
-          return (data['vehicles'] as List)
+        if (data['ok'] == true && data['data'] != null) {
+          return (data['data'] as List)
               .map((v) => VehiculeImplique.fromJson(v))
               .toList();
         }
@@ -75,6 +97,7 @@ class AccidentApiService {
     String? modele,
     String? couleur,
     String? annee,
+    String? username,
   }) async {
     try {
       var request = http.MultipartRequest(
@@ -87,13 +110,16 @@ class AccidentApiService {
       if (modele != null && modele.isNotEmpty) request.fields['modele'] = modele;
       if (couleur != null && couleur.isNotEmpty) request.fields['couleur'] = couleur;
       if (annee != null && annee.isNotEmpty) request.fields['annee'] = annee;
+      if (username != null && username.isNotEmpty) request.fields['username'] = username;
 
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();
       final data = jsonDecode(responseBody);
       
-      if (data['ok'] == true || data['success'] == true) {
-        return data['id'] ?? data['vehicule_id'] ?? 0;
+      if (data['success'] == true) {
+        // Convertir l'ID en entier au cas où il serait retourné comme string
+        final id = data['id'] ?? data['vehicule_id'] ?? 0;
+        return id is String ? int.parse(id) : id;
       }
       throw Exception(data['error'] ?? data['message'] ?? 'Création impossible');
     } catch (e) {

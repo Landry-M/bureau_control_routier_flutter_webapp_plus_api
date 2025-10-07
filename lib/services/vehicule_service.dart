@@ -98,9 +98,10 @@ class VehiculeService {
   }
 
   /// Recherche locale renvoyant toutes les correspondances pour une plaque/texte
-  Future<List<Map<String, dynamic>>> searchLocal(String query) async {
-    final resp = await _apiClient
-        .get('/vehicules/search?q=${Uri.encodeComponent(query)}');
+  Future<List<Map<String, dynamic>>> searchLocal(String query, {String? username}) async {
+    final queryParams = 'q=${Uri.encodeComponent(query)}' + 
+                       (username != null ? '&username=${Uri.encodeComponent(username)}' : '');
+    final resp = await _apiClient.get('/vehicules/search?$queryParams');
     final data = json.decode(resp.body);
     if (data is Map<String, dynamic>) {
       final items = (data['items'] ?? data['data']) as dynamic;
@@ -133,11 +134,12 @@ class VehiculeService {
   }
 
   /// Recherche une plaque d'immatriculation (locale puis DGI)
-  Future<Map<String, dynamic>?> searchPlaque(String plate) async {
+  Future<Map<String, dynamic>?> searchPlaque(String plate, {String? username}) async {
     try {
       // 1. Recherche locale
-      final localResponse = await _apiClient
-          .get('/vehicules/search?q=${Uri.encodeComponent(plate)}');
+      final queryParams = 'q=${Uri.encodeComponent(plate)}' + 
+                         (username != null ? '&username=${Uri.encodeComponent(username)}' : '');
+      final localResponse = await _apiClient.get('/vehicules/search?$queryParams');
       final localData = json.decode(localResponse.body);
 
       if (localData is Map<String, dynamic> &&

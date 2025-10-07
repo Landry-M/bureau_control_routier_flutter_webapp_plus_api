@@ -124,13 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: TextButton(
-                                onPressed: loading ? null : () {},
-                                child: const Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text('Mot de passe oublié ?'),
-                                ),
-                              ),
+                              child: Container(),
                             ),
                             ElevatedButton(
                               onPressed: loading ? null : _submit,
@@ -138,7 +132,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ? const SizedBox(
                                       width: 20,
                                       height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
                                     )
                                   : const Text('CONNEXION'),
                             ),

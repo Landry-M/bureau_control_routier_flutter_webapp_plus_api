@@ -26,7 +26,7 @@ php_value output_buffering 4096
 # Autoriser les uploads de fichiers
 php_flag file_uploads On
 
-# Headers CORS sécurisés
+# Headers CORS sécurisés pour API
 SetEnvIf Origin "^https://controls\.heaventech\.net$" CORS_ORIGIN=$0
 SetEnvIf Origin "^https://control\.heaventech\.net$" CORS_ORIGIN=$0
 SetEnvIf Origin "^https://api\.bcr\.heaventech\.net$" CORS_ORIGIN=$0
@@ -48,3 +48,17 @@ Header always set Access-Control-Allow-Credentials "true"
     php_value max_input_vars 3000
     php_flag file_uploads On
 </Files>
+
+# Protection des dossiers sensibles
+<Directory "uploads">
+    Options -Indexes
+    <FilesMatch "\.(php|phtml|php3|php4|php5|pl|py|jsp|asp|sh|cgi)$">
+        Deny from all
+    </FilesMatch>
+</Directory>
+
+# Redirection pour API PHP
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^api/(.*)$ api/routes/index.php [QSA,L]

@@ -32,8 +32,18 @@ php_flag file_uploads On
     Allow from all
 </FilesMatch>
 
-# Configuration pour servir les fichiers statiques
+# Configuration CORS pour accepter toutes les origines
+Header always set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Auth-Token, X-API-Key"
+Header always set Access-Control-Max-Age "86400"
+
+# Gestion des requêtes OPTIONS (preflight)
 RewriteEngine On
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ $1 [R=200,L]
+
+# Configuration pour servir les fichiers statiques
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^assets/(.*)$ assets/$1 [L]

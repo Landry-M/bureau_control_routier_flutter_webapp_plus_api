@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:toastification/toastification.dart';
+import 'package:http/http.dart' as http;
 import '../providers/accident_provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/responsive.dart';
 import '../widgets/top_bar.dart';
+import '../config/api_config.dart';
 import 'dart:async';
+import 'dart:convert';
 
 class AccidentsScreen extends StatefulWidget {
   const AccidentsScreen({super.key});
@@ -53,8 +57,13 @@ class _AccidentsScreenState extends State<AccidentsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Erreur lors du chargement de l\'accident'),
+          description: Text(e.toString()),
+          autoCloseDuration: const Duration(seconds: 4),
         );
       }
     }
@@ -79,10 +88,55 @@ class _AccidentsScreenState extends State<AccidentsScreen> {
     );
   }
 
+  void _testImageConnectivity() async {
+    try {
+      // Tester l'URL de base
+      final baseUrl = ApiConfig.imageBaseUrl;
+      print('DEBUG TEST - URL de base: $baseUrl');
+      
+      // Tester une image spécifique
+      final testImageUrl = '$baseUrl/uploads/accidents/68e3ba695220b_1759754857.jpeg';
+      print('DEBUG TEST - Test de l\'URL: $testImageUrl');
+      
+      final uri = Uri.parse(testImageUrl);
+      final response = await http.get(uri);
+      
+      print('DEBUG TEST - Réponse: ${response.statusCode}');
+      print('DEBUG TEST - Headers: ${response.headers}');
+      
+      if (mounted) {
+        toastification.show(
+          context: context,
+          type: response.statusCode == 200 ? ToastificationType.success : ToastificationType.error,
+          style: ToastificationStyle.fillColored,
+          title: Text('Test de connectivité'),
+          description: Text('Status: ${response.statusCode} - ${response.statusCode == 200 ? 'OK' : 'Erreur'}'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    } catch (e) {
+      print('DEBUG TEST - Erreur: $e');
+      if (mounted) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Erreur de connectivité'),
+          description: Text(e.toString()),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    }
+  }
+
   void _showLocationOnMap(dynamic latitude, dynamic longitude, String locationName) {
     if (latitude == null || longitude == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Coordonnées GPS non disponibles')),
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        style: ToastificationStyle.fillColored,
+        title: const Text('Coordonnées GPS non disponibles'),
+        autoCloseDuration: const Duration(seconds: 3),
       );
       return;
     }
@@ -103,15 +157,24 @@ class _AccidentsScreenState extends State<AccidentsScreen> {
         lng = longitude.toDouble();
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur de format des coordonnées: $e')),
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        style: ToastificationStyle.fillColored,
+        title: const Text('Erreur de format des coordonnées'),
+        description: Text(e.toString()),
+        autoCloseDuration: const Duration(seconds: 4),
       );
       return;
     }
 
     if (lat == null || lng == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Coordonnées invalides')),
+      toastification.show(
+        context: context,
+        type: ToastificationType.warning,
+        style: ToastificationStyle.fillColored,
+        title: const Text('Coordonnées invalides'),
+        autoCloseDuration: const Duration(seconds: 3),
       );
       return;
     }
@@ -139,44 +202,96 @@ class _AccidentsScreenState extends State<AccidentsScreen> {
       );
     }
 
-    // Supposons que les images sont séparées par des virgules
-    final imageList = images.split(',');
-    final firstImage = imageList.first.trim();
+    try {
+      List<String> imageList;
+      
+      // Debug: afficher les données brutes
+      print('DEBUG - Images brutes: $images');
+      
+      // Vérifier si c'est du JSON ou une liste séparée par des virgules
+      if (images.startsWith('[') && images.endsWith(']')) {
+        // C'est du JSON
+        final List<dynamic> jsonList = jsonDecode(images);
+        imageList = jsonList.map((e) => e.toString()).toList();
+      } else {
+        // C'est une liste séparée par des virgules
+        imageList = images.split(',');
+      }
+      
+      // Debug: afficher la liste parsée
+      print('DEBUG - Images parsées: $imageList');
+      
+      if (imageList.isEmpty) {
+        return Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.image_not_supported, color: Colors.grey),
+        );
+      }
 
-    return Container(
-      width: 60,
-      height: 60,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          firstImage,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: Colors.grey[300],
-              child: const Icon(Icons.broken_image, color: Colors.grey),
-            );
-          },
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              color: Colors.grey[200],
-              child: const Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            );
-          },
+      final firstImage = imageList.first.trim();
+      
+      // Construire l'URL complète de l'image
+      final imageUrl = firstImage.startsWith('http') 
+          ? firstImage 
+          : '${ApiConfig.imageBaseUrl}$firstImage'; // Pas de slash car firstImage commence par /
+      
+      // Debug: afficher l'URL finale et plateforme
+      print('DEBUG - URL finale: $imageUrl');
+      print('DEBUG - Plateforme: ${Theme.of(context).platform}');
+
+      return Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[300]!),
         ),
-      ),
-    );
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.network(
+            imageUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              print('DEBUG - Erreur de chargement d\'image: $error');
+              print('DEBUG - StackTrace: $stackTrace');
+              return Container(
+                color: Colors.grey[300],
+                child: const Icon(Icons.broken_image, color: Colors.grey),
+              );
+            },
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(
+                color: Colors.grey[200],
+                child: const Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      // En cas d'erreur de parsing, afficher l'icône d'erreur
+      return Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.broken_image, color: Colors.grey),
+      );
+    }
   }
 
   @override
@@ -271,7 +386,22 @@ class _AccidentsScreenState extends State<AccidentsScreen> {
                       ),
                       Expanded(
                         flex: 2,
-                        child: Container(), // Espace vide à droite
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 16),
+                            // Bouton de test temporaire
+                            ElevatedButton.icon(
+                              onPressed: _testImageConnectivity,
+                              icon: const Icon(Icons.network_check, size: 16),
+                              label: const Text('Test Images'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -356,7 +486,7 @@ class _AccidentsScreenState extends State<AccidentsScreen> {
                                     child: DataTable(
                                       columnSpacing: 20,
                                       headingRowColor: WidgetStateProperty.all(
-                                        theme.colorScheme.surfaceContainer.withOpacity(0.5),
+                                        theme.colorScheme.surfaceContainer.withValues(alpha: 0.5),
                                       ),
                                       columns: const [
                                         DataColumn(label: Text('Photo', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -532,46 +662,77 @@ class _AccidentDetailsModal extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final temoins = accident['temoins'] as List<dynamic>? ?? [];
+    final parties = accident['parties_impliquees'] as List<dynamic>? ?? [];
 
-    return AlertDialog(
-      title: Text('Détails de l\'accident #${accident['id']}'),
-      content: SizedBox(
-        width: double.maxFinite,
-        height: 600,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildDetailRow('Date', _formatDate(accident['date_accident'])),
-              _buildDetailRow('Lieu', accident['lieu']),
-              _buildDetailRow('Gravité', accident['gravite']),
-              _buildDetailRow('Description', accident['description']),
-              
-              const SizedBox(height: 16),
-              Text(
-                'Photos:',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+    return Dialog(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.9,
+        height: MediaQuery.of(context).size.height * 0.8,
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            // Header avec croix de fermeture
+            Row(
+              children: [
+                Icon(Icons.warning, color: theme.colorScheme.primary, size: 32),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Détails de l\'accident #${accident['id']}',
+                    style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const Divider(color: Colors.white30),
+            const SizedBox(height: 16),
+
+            // Contenu avec scroll
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildDetailRow('Date', _formatDate(accident['date_accident'])),
+                    _buildDetailRow('Lieu', accident['lieu']),
+                    _buildDetailRow('Gravité', accident['gravite']),
+                    _buildDetailRow('Description', accident['description']),
+                    
+                    const SizedBox(height: 16),
+                    Text(
+                      'Photos:',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildImagesSection(accident['images']),
+                    
+                    const SizedBox(height: 16),
+                    Text(
+                      'Parties impliquées (${parties.length}):',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const SizedBox(height: 8),
+                    ...parties.map((partie) => _buildPartieCard(partie)),
+                    
+                    const SizedBox(height: 16),
+                    Text(
+                      'Témoins (${temoins.length}):',
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const SizedBox(height: 8),
+                    ...temoins.map((temoin) => _buildWitnessCard(temoin)),
+                  ],
+                ),
               ),
-              const SizedBox(height: 8),
-              _buildImagesSection(accident['images']),
-              
-              const SizedBox(height: 16),
-              Text(
-                'Témoins (${temoins.length}):',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              ...temoins.map((temoin) => _buildWitnessCard(temoin)).toList(),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Fermer'),
-        ),
-      ],
     );
   }
 
@@ -601,35 +762,72 @@ class _AccidentDetailsModal extends StatelessWidget {
       return const Text('Aucune photo disponible');
     }
 
-    final imageList = images.split(',').map((e) => e.trim()).toList();
-    
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: imageList.map((image) {
-        return Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[300]!),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.network(
-              image,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: Colors.grey[300],
-                  child: const Icon(Icons.broken_image, color: Colors.grey),
-                );
-              },
+    try {
+      List<String> imageList;
+      
+      // Debug: afficher les données brutes
+      print('DEBUG MODAL - Images brutes: $images');
+      
+      // Vérifier si c'est du JSON ou une liste séparée par des virgules
+      if (images.startsWith('[') && images.endsWith(']')) {
+        // C'est du JSON
+        final List<dynamic> jsonList = jsonDecode(images);
+        imageList = jsonList.map((e) => e.toString()).toList();
+      } else {
+        // C'est une liste séparée par des virgules
+        imageList = images.split(',').map((e) => e.trim()).toList();
+      }
+      
+      // Debug: afficher la liste parsée
+      print('DEBUG MODAL - Images parsées: $imageList');
+      
+      if (imageList.isEmpty) {
+        return const Text('Aucune photo disponible');
+      }
+      
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: imageList.map((image) {
+          final imagePath = image.trim();
+          
+          // Construire l'URL complète de l'image
+          final imageUrl = imagePath.startsWith('http') 
+              ? imagePath 
+              : '${ApiConfig.imageBaseUrl}$imagePath'; // Pas de slash car imagePath commence par /
+          
+          // Debug: afficher l'URL finale
+          print('DEBUG MODAL - URL finale: $imageUrl');
+              
+          return Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[300]!),
             ),
-          ),
-        );
-      }).toList(),
-    );
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  print('DEBUG MODAL - Erreur de chargement d\'image: $error');
+                  print('DEBUG MODAL - StackTrace: $stackTrace');
+                  return Container(
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                  );
+                },
+              ),
+            ),
+          );
+        }).toList(),
+      );
+    } catch (e) {
+      // En cas d'erreur de parsing, afficher un message d'erreur
+      return Text('Erreur lors du chargement des images: ${e.toString()}');
+    }
   }
 
   Widget _buildWitnessCard(Map<String, dynamic> temoin) {
@@ -658,6 +856,107 @@ class _AccidentDetailsModal extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildPartieCard(Map<String, dynamic> partie) {
+    final passagers = partie['passagers'] as List<dynamic>? ?? [];
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: Colors.grey[800],
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.directions_car, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${partie['plaque'] ?? 'Plaque inconnue'} - ${partie['marque'] ?? ''} ${partie['modele'] ?? ''}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _getRoleColor(partie['role']),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _getRoleLabel(partie['role']),
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (partie['conducteur_nom'] != null)
+              Text('Conducteur: ${partie['conducteur_nom']}', style: const TextStyle(color: Colors.white70)),
+            if (partie['conducteur_etat'] != null)
+              Text('État: ${_getEtatLabel(partie['conducteur_etat'])}', style: const TextStyle(color: Colors.white70)),
+            if (partie['couleur'] != null)
+              Text('Couleur: ${partie['couleur']}', style: const TextStyle(color: Colors.white70)),
+            if (partie['dommages_vehicule'] != null && partie['dommages_vehicule'].toString().isNotEmpty)
+              Text('Dommages: ${partie['dommages_vehicule']}', style: const TextStyle(color: Colors.white70)),
+            if (passagers.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('Passagers (${passagers.length}):', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+              ...passagers.map((passager) => Padding(
+                padding: const EdgeInsets.only(left: 16, top: 4),
+                child: Text(
+                  '• ${passager['nom']} (${_getEtatLabel(passager['etat'])})',
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                ),
+              )),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getRoleColor(String? role) {
+    switch (role) {
+      case 'responsable':
+        return Colors.red;
+      case 'victime':
+        return Colors.orange;
+      case 'temoin_materiel':
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getRoleLabel(String? role) {
+    switch (role) {
+      case 'responsable':
+        return 'Responsable';
+      case 'victime':
+        return 'Victime';
+      case 'temoin_materiel':
+        return 'Témoin matériel';
+      default:
+        return 'Autre';
+    }
+  }
+
+  String _getEtatLabel(String? etat) {
+    switch (etat) {
+      case 'indemne':
+        return 'Indemne';
+      case 'blesse_leger':
+        return 'Blessé léger';
+      case 'blesse_grave':
+        return 'Blessé grave';
+      case 'decede':
+        return 'Décédé';
+      default:
+        return 'Inconnu';
+    }
   }
 
   String _formatDate(dynamic date) {
@@ -766,7 +1065,7 @@ class _LocationMapDialogState extends State<_LocationMapDialog> {
                         Text(
                           widget.locationName,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onPrimaryContainer.withOpacity(0.7),
+                            color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
                           ),
                         ),
                       ],

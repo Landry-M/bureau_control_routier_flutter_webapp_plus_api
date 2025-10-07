@@ -1,0 +1,30 @@
+# Configuration CORS globale - URGENT PRODUCTION
+Header always set Access-Control-Allow-Origin "https://controls.heaventech.net"
+Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+Header always set Access-Control-Allow-Credentials "true"
+
+# Gestion des requêtes OPTIONS
+RewriteEngine On
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ $1 [R=204,L]
+
+# Configuration PHP pour augmenter les limites d'upload
+php_value upload_max_filesize 100M
+php_value post_max_size 100M
+php_value max_execution_time 600
+php_value max_input_time 600
+php_value memory_limit 512M
+php_value max_input_vars 3000
+php_flag file_uploads On
+
+# Configuration pour les fichiers PHP
+<Files "*.php">
+    php_value upload_max_filesize 100M
+    php_value post_max_size 100M
+    php_value max_execution_time 600
+    php_value max_input_time 600
+    php_value memory_limit 512M
+    php_value max_input_vars 3000
+    php_flag file_uploads On
+</Files>

@@ -15,7 +15,7 @@ class _TemoinModalState extends State<TemoinModal> {
   final _telephoneController = TextEditingController();
   final _ageController = TextEditingController();
   final _temoignageController = TextEditingController();
-  LienAccident _lien = LienAccident.temoinDirect;
+  LienAccident _lien = LienAccident.passant;
 
   @override
   void dispose() {
