@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test CORS - Uploads</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { border-color: #4CAF50; background-color: #f1f8e9; }
+        .error { border-color: #f44336; background-color: #ffebee; }
+        .warning { border-color: #ff9800; background-color: #fff3e0; }
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #1976D2; }
+        #results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .file-test {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Test d'accès CORS aux fichiers uploads</h1>
+        
+        <div class="test-section">
+            <h2>Configuration testée</h2>
+            <p><strong>Base URL:</strong> <span id="baseUrl">http://localhost/api/uploads/</span></p>
+            <p><strong>Dossiers:</strong> contraventions, particuliers, entreprises, vehicules, conducteurs, accidents, parties_impliquees, permis_temporaire</p>
+        </div>
+
+        <div class="test-section">
+            <h2>Tests automatiques</h2>
+            <button onclick="testCorsAccess()">🚀 Tester l'accès CORS</button>
+            <button onclick="testFileAccess()">📁 Tester l'accès aux fichiers</button>
+            <button onclick="testHeaders()">📋 Vérifier les headers CORS</button>
+            <button onclick="clearResults()">🗑️ Effacer les résultats</button>
+        </div>
+
+        <div class="test-section">
+            <h2>Test manuel d'URL</h2>
+            <input type="text" id="testUrl" placeholder="URL à tester (ex: http://localhost/api/uploads/contraventions/fichier.pdf)" style="width: 70%; padding: 8px;">
+            <button onclick="testCustomUrl()">Tester cette URL</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const baseUrl = 'http://localhost/api/uploads/';
+        const folders = ['contraventions', 'particuliers', 'entreprises', 'vehicules', 'conducteurs', 'accidents', 'parties_impliquees', 'permis_temporaire'];
+        
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+            results.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('results').textContent = '';
+        }
+
+        async function testCorsAccess() {
+            log('🔄 Début du test d\'accès CORS...');
+            
+            for (const folder of folders) {
+                const url = `${baseUrl}${folder}/`;
+                try {
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        mode: 'cors'
+                    });
+                    
+                    if (response.ok) {
+                        log(`Accès CORS OK pour ${folder} (${response.status})`, 'success');
+                    } else {
+                        log(`Erreur d'accès pour ${folder}: ${response.status} ${response.statusText}`, 'error');
+                    }
+                } catch (error) {
+                    log(`Erreur CORS pour ${folder}: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        async function testFileAccess() {
+            log('🔄 Test d\'accès aux fichiers existants...');
+            
+            // URLs de test avec des fichiers qui pourraient exister
+            const testFiles = [
+                'contraventions/contravention_1_2025-10-04_17-31-05.pdf',
+                'contraventions/contravention_3_2025-10-04_17-35-47.pdf',
+                'particuliers/1_permis_recto_1759602538.png',
+                'accidents/68e3ba695220b_1759754857.jpeg',
+                'parties_impliquees/68e3ba69541c4_1759754857.jpg',
+                'permis_temporaire/permis_temporaire_10_2025-10-06_02-40-00.pdf'
+            ];
+            
+            for (const file of testFiles) {
+                const url = baseUrl + file;
+                try {
+                    const response = await fetch(url, {
+                        method: 'HEAD',
+                        mode: 'cors'
+                    });
+                    
+                    if (response.ok) {
+                        log(`Fichier accessible: ${file}`, 'success');
+                    } else {
+                        log(`Fichier non trouvé: ${file} (${response.status})`, 'warning');
+                    }
+                } catch (error) {
+                    log(`Erreur d'accès au fichier ${file}: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        async function testHeaders() {
+            log('🔄 Vérification des headers CORS...');
+            
+            try {
+                const response = await fetch(baseUrl, {
+                    method: 'OPTIONS',
+                    mode: 'cors'
+                });
+                
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers')
+                };
+                
+                log('Headers CORS détectés:', 'info');
+                for (const [header, value] of Object.entries(corsHeaders)) {
+                    if (value) {
+                        log(`  ${header}: ${value}`, 'success');
+                    } else {
+                        log(`  ${header}: non défini`, 'warning');
+                    }
+                }
+            } catch (error) {
+                log(`Erreur lors de la vérification des headers: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCustomUrl() {
+            const url = document.getElementById('testUrl').value.trim();
+            if (!url) {
+                log('Veuillez saisir une URL à tester', 'warning');
+                return;
+            }
+            
+            log(`🔄 Test de l'URL personnalisée: ${url}`);
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'HEAD',
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    log(`URL accessible (${response.status})`, 'success');
+                    log(`Content-Type: ${response.headers.get('Content-Type') || 'non défini'}`, 'info');
+                    log(`Content-Length: ${response.headers.get('Content-Length') || 'non défini'}`, 'info');
+                } else {
+                    log(`Erreur d'accès: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                log(`Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        // Test automatique au chargement de la page
+        window.onload = function() {
+            document.getElementById('baseUrl').textContent = baseUrl;
+            log('🚀 Page de test CORS chargée. Cliquez sur les boutons pour commencer les tests.');
+        };
+    </script>
+</body>
+</html>

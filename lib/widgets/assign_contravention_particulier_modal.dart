@@ -1,12 +1,14 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-
-import '../config/api_config.dart';
 import '../services/api_client.dart';
+import '../config/api_config.dart';
 import '../services/notification_service.dart';
 import '../utils/date_time_picker_theme.dart';
 import 'location_picker_dialog.dart';
+import 'contravention_preview_modal.dart';
 
 class AssignContraventionParticulierModal extends StatefulWidget {
   final Map<String, dynamic> particulier;
@@ -24,19 +26,26 @@ class AssignContraventionParticulierModal extends StatefulWidget {
 
 class _AssignContraventionParticulierModalState extends State<AssignContraventionParticulierModal> {
   final _formKey = GlobalKey<FormState>();
-
-  // Champs de contravention
-  DateTime? _selectedDateTime;
+  
+  // Contrôleurs
   final _cDateHeureCtrl = TextEditingController();
   final _cLieuCtrl = TextEditingController();
   final _cTypeInfractionCtrl = TextEditingController();
   final _cRefLoiCtrl = TextEditingController();
   final _cMontantCtrl = TextEditingController();
   final _cDescriptionCtrl = TextEditingController();
+  
+  DateTime? _selectedDateTime;
   bool _cPayee = false;
-
   bool _submitting = false;
-  List<PlatformFile> _contravPhotos = [];
+  
+  // Coordonnées géographiques
+  double? _latitude;
+  double? _longitude;
+  
+  // Images de contravention
+  final List<XFile> _selectedImages = [];
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void dispose() {
@@ -49,19 +58,6 @@ class _AssignContraventionParticulierModalState extends State<AssignContraventio
     super.dispose();
   }
 
-  Future<void> _selectLocationOnMap() async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => const LocationPickerDialog(),
-    );
-
-    if (result != null && result['address'] != null) {
-      setState(() {
-        _cLieuCtrl.text = result['address'];
-      });
-    }
-  }
-
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     
@@ -69,7 +65,6 @@ class _AssignContraventionParticulierModalState extends State<AssignContraventio
     
     try {
       final api = ApiClient(baseUrl: ApiConfig.baseUrl);
-      
       final fields = <String, String>{
         'dossier_id': widget.particulier['id'].toString(),
         'type_dossier': 'particulier',
@@ -79,31 +74,49 @@ class _AssignContraventionParticulierModalState extends State<AssignContraventio
         'description': _cDescriptionCtrl.text.trim(),
         'reference_loi': _cRefLoiCtrl.text.trim(),
         'amende': _cMontantCtrl.text.trim(),
-        'payed': _cPayee ? 'oui' : 'non',
+        'payed': _cPayee ? '1' : '0',
+        'latitude': _latitude?.toString() ?? '',
+        'longitude': _longitude?.toString() ?? '',
       };
 
-      final files = <http.MultipartFile>[];
-      
-      if (_contravPhotos.isNotEmpty) {
-        for (final p in _contravPhotos) {
-          if (p.bytes != null) {
-            files.add(http.MultipartFile.fromBytes(
-              'photos[]',
-              p.bytes!,
-              filename: p.name,
-            ));
-          }
-        }
+      // Préparer les fichiers images
+      final List<http.MultipartFile> imageFiles = [];
+      for (int i = 0; i < _selectedImages.length; i++) {
+        final image = _selectedImages[i];
+        final multipartFile = await http.MultipartFile.fromPath(
+          'photos',
+          image.path,
+          filename: 'contrav_${DateTime.now().millisecondsSinceEpoch}_$i.${image.path.split('.').last}',
+        );
+        imageFiles.add(multipartFile);
       }
 
-      final resp = await api.postMultipart('/contravention/create', fields: fields, files: files);
+      final resp = await api.postMultipart('/contravention/create', fields: fields, files: imageFiles);
       final ok = resp.statusCode >= 200 && resp.statusCode < 300;
       
       if (!ok) throw Exception('Erreur (${resp.statusCode})');
       
+      // Décoder la réponse pour récupérer l'ID de la contravention
+      final responseData = resp.body.isNotEmpty ? 
+          jsonDecode(resp.body) : null;
+      final contraventionIdRaw = responseData?['id'];
+      final contraventionId = contraventionIdRaw != null ? 
+          int.tryParse(contraventionIdRaw.toString()) : null;
+      
       if (mounted) {
         NotificationService.success(context, 'Contravention assignée avec succès');
         Navigator.of(context).pop(true);
+        widget.onSuccess?.call();
+        
+        // Afficher la prévisualisation si on a l'ID
+        if (contraventionId != null) {
+          showDialog(
+            context: context,
+            builder: (context) => ContraventionPreviewModal(
+              contraventionId: contraventionId,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -146,73 +159,19 @@ class _AssignContraventionParticulierModalState extends State<AssignContraventio
     }
   }
 
-  Future<void> _pickContravPhotos() async {
-    final res = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'gif'],
-      withData: true,
-    );
-    if (res != null && res.files.isNotEmpty) {
-      setState(() => _contravPhotos = res.files);
-    }
-  }
-
-  void _showImagePreview(PlatformFile file) {
-    showDialog(
+  Future<void> _selectLocation() async {
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.black,
-        child: Stack(
-          children: [
-            Center(
-              child: file.bytes != null
-                  ? Image.memory(
-                      file.bytes!,
-                      fit: BoxFit.contain,
-                    )
-                  : const Icon(
-                      Icons.broken_image,
-                      color: Colors.white,
-                      size: 100,
-                    ),
-            ),
-            Positioned(
-              top: 16,
-              right: 16,
-              child: IconButton(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 30,
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 16,
-              left: 16,
-              right: 16,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  file.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      builder: (context) => const LocationPickerDialog(),
     );
+
+    if (result != null && mounted) {
+      setState(() {
+        _latitude = result['latitude'];
+        _longitude = result['longitude'];
+        _cLieuCtrl.text = result['address'];
+      });
+    }
   }
 
   @override
@@ -221,22 +180,14 @@ class _AssignContraventionParticulierModalState extends State<AssignContraventio
     final tt = theme.textTheme;
 
     return AlertDialog(
-      contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          Icon(Icons.receipt_long, color: theme.colorScheme.primary),
+          const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Assigner une contravention'),
-                Text(
-                  'Particulier: ${widget.particulier['nom']} ${widget.particulier['prenom'] ?? ''}',
-                  style: tt.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+            child: Text(
+              'Créer contravention - ${widget.particulier['nom'] ?? 'Particulier'}',
+              style: tt.titleLarge,
             ),
           ),
           IconButton(
@@ -247,7 +198,7 @@ class _AssignContraventionParticulierModalState extends State<AssignContraventio
         ],
       ),
       content: SizedBox(
-        width: 600,
+        width: MediaQuery.of(context).size.width * 0.8,
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
@@ -258,39 +209,50 @@ class _AssignContraventionParticulierModalState extends State<AssignContraventio
                 const SizedBox(height: 16),
                 
                 // Date et heure
+                TextFormField(
+                  controller: _cDateHeureCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Date et heure *',
+                    hintText: 'Sélectionner date/heure',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.calendar_today),
+                  ),
+                  readOnly: true,
+                  onTap: _submitting ? null : _selectDateTime,
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                ),
+                const SizedBox(height: 12),
+
+                // Lieu avec sélection sur carte
                 Row(
                   children: [
                     Expanded(
                       child: TextFormField(
-                        controller: _cDateHeureCtrl,
-                        readOnly: true,
-                        onTap: _submitting ? null : _selectDateTime,
-                        decoration: const InputDecoration(
-                          labelText: 'Date/heure *',
-                          suffixIcon: Icon(Icons.calendar_today),
-                          hintText: 'Sélectionner date/heure',
-                          border: OutlineInputBorder(),
+                        controller: _cLieuCtrl,
+                        decoration: InputDecoration(
+                          labelText: 'Lieu de l\'infraction *',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: _latitude != null && _longitude != null
+                              ? Icon(Icons.location_on, color: Colors.green[600])
+                              : null,
                         ),
                         validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+                        readOnly: true,
+                        onTap: _submitting ? null : _selectLocation,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: _submitting ? null : _selectLocation,
+                      icon: const Icon(Icons.map),
+                      tooltip: 'Sélectionner sur la carte',
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        side: BorderSide(color: Theme.of(context).colorScheme.outline),
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 12),
-                
-                // Lieu
-                TextFormField(
-                  controller: _cLieuCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'Lieu de l\'infraction',
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.map),
-                      onPressed: _selectLocationOnMap,
-                      tooltip: 'Sélectionner sur la carte',
-                    ),
-                  ),
-                  readOnly: false,
                 ),
                 const SizedBox(height: 12),
                 
@@ -343,61 +305,20 @@ class _AssignContraventionParticulierModalState extends State<AssignContraventio
                 ),
                 const SizedBox(height: 16),
                 
+                // Section des images
+                _buildImageSection(),
+                const SizedBox(height: 16),
+                
                 // Amende payée
                 Row(
                   children: [
                     Checkbox(
                       value: _cPayee,
-                      onChanged: (v) => setState(() => _cPayee = v ?? false),
+                      onChanged: _submitting ? null : (v) => setState(() => _cPayee = v ?? false),
                     ),
                     const Text('Amende payée'),
                   ],
                 ),
-                const SizedBox(height: 16),
-                
-                // Photos
-                OutlinedButton.icon(
-                  onPressed: _submitting ? null : _pickContravPhotos,
-                  icon: const Icon(Icons.photo_library),
-                  label: Text('Ajouter des photos (${_contravPhotos.length})'),
-                ),
-                
-                if (_contravPhotos.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 100,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _contravPhotos.length,
-                      itemBuilder: (context, index) {
-                        final file = _contravPhotos[index];
-                        return Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          child: GestureDetector(
-                            onTap: () => _showImagePreview(file),
-                            child: Container(
-                              width: 100,
-                              height: 100,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: file.bytes != null
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Image.memory(
-                                        file.bytes!,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    )
-                                  : const Icon(Icons.image),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -408,17 +329,141 @@ class _AssignContraventionParticulierModalState extends State<AssignContraventio
           onPressed: _submitting ? null : () => Navigator.of(context).pop(false),
           child: const Text('Annuler'),
         ),
-        ElevatedButton(
+        FilledButton.icon(
           onPressed: _submitting ? null : _submit,
-          child: _submitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Assigner'),
+          icon: _submitting ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save),
+          label: Text(_submitting ? 'Création...' : 'Créer'),
         ),
       ],
     );
+  }
+
+  // Section des images
+  Widget _buildImageSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.camera_alt, size: 20),
+            const SizedBox(width: 8),
+            const Text(
+              'Photos de la contravention',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: _submitting ? null : _pickImages,
+              icon: const Icon(Icons.add_a_photo, size: 18),
+              label: const Text('Ajouter'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        
+        if (_selectedImages.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Column(
+              children: [
+                Icon(Icons.add_photo_alternate, size: 48, color: Colors.grey),
+                SizedBox(height: 8),
+                Text(
+                  'Aucune photo sélectionnée',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                Text(
+                  'Appuyez sur "Ajouter" pour sélectionner des photos',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _selectedImages.asMap().entries.map((entry) {
+              final index = entry.key;
+              final image = entry.value;
+              return _buildImageThumbnail(image, index);
+            }).toList(),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildImageThumbnail(XFile image, int index) {
+    return Stack(
+      children: [
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(
+              File(image.path),
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return const Icon(Icons.error, color: Colors.red);
+              },
+            ),
+          ),
+        ),
+        Positioned(
+          top: 2,
+          right: 2,
+          child: GestureDetector(
+            onTap: () => _removeImage(index),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickImages() async {
+    try {
+      final List<XFile> images = await _imagePicker.pickMultiImage(
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+      
+      if (images.isNotEmpty) {
+        setState(() {
+          _selectedImages.addAll(images);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        NotificationService.error(context, 'Erreur lors de la sélection des images: $e');
+      }
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+    });
   }
 }

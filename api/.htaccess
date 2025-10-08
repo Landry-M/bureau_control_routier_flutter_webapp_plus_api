@@ -48,3 +48,21 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^assets/(.*)$ assets/$1 [L]
 
+# Permettre l'accès direct aux fichiers uploads sans redirection
+RewriteCond %{REQUEST_URI} ^/uploads/
+RewriteRule ^(.*)$ - [L]
+
+# Configuration spécifique pour le dossier uploads
+<Directory "uploads">
+    Options +Indexes +FollowSymLinks
+    AllowOverride All
+    Order allow,deny
+    Allow from all
+    Require all granted
+    
+    # CORS spécifique pour uploads
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+    Header always set Access-Control-Allow-Headers "*"
+</Directory>
+

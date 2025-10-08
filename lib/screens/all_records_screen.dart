@@ -22,6 +22,7 @@ import '../widgets/edit_particulier_modal.dart';
 import '../widgets/entreprise_details_modal.dart';
 import '../widgets/particulier_details_modal.dart';
 import '../widgets/particulier_actions_modal.dart';
+import '../widgets/associer_vehicule_modal.dart';
 import '../widgets/vehicule_actions_modal.dart';
 import '../widgets/edit_vehicule_modal.dart';
 import '../widgets/vehicule_details_modal.dart';
@@ -1015,16 +1016,25 @@ class _ParticuliersTabState extends State<ParticuliersTab> {
   }
 
   void _associerVehicule(Map<String, dynamic> particulier) {
-    toastification.show(
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
       context: context,
-      type: ToastificationType.warning,
-      style: ToastificationStyle.fillColored,
-      title: const Text('Fonctionnalité en développement'),
-      description: const Text(
-          'La fonctionnalité d\'association de véhicule est en cours de développement'),
-      alignment: Alignment.topRight,
-      autoCloseDuration: const Duration(seconds: 4),
-      showProgressBar: true,
+      builder: (context) => AssocierVehiculeModal(
+        particulier: particulier,
+        onSuccess: () {
+          // Rafraîchir la liste des particuliers après succès
+          context.read<ParticulierProvider>().refresh();
+          toastification.show(
+            context: context,
+            type: ToastificationType.success,
+            style: ToastificationStyle.fillColored,
+            title: const Text('Succès'),
+            description: const Text('Véhicule associé avec succès'),
+            alignment: Alignment.topRight,
+            autoCloseDuration: const Duration(seconds: 3),
+          );
+        },
+      ),
     );
   }
 

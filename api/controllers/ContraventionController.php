@@ -16,12 +16,27 @@ class ContraventionController extends BaseController {
      */
     public function create($data) {
         try {
+            // Vérifier si les colonnes latitude/longitude existent, sinon les ajouter
+            try {
+                $checkLat = $this->db->query("SHOW COLUMNS FROM {$this->table} LIKE 'latitude'");
+                $checkLng = $this->db->query("SHOW COLUMNS FROM {$this->table} LIKE 'longitude'");
+                
+                if ($checkLat->rowCount() == 0 || $checkLng->rowCount() == 0) {
+                    $this->db->exec("ALTER TABLE {$this->table} 
+                        ADD COLUMN latitude DECIMAL(10, 8) DEFAULT NULL,
+                        ADD COLUMN longitude DECIMAL(11, 8) DEFAULT NULL");
+                }
+            } catch (Exception $e) {
+                // Continue même si l'ajout des colonnes échoue
+                error_log("Warning: Could not add lat/lng columns: " . $e->getMessage());
+            }
+
             $query = "INSERT INTO {$this->table} (
                 dossier_id, type_dossier, date_infraction, lieu, type_infraction, 
-                description, reference_loi, amende, payed, photos, created_at
+                description, reference_loi, amende, payed, photos, latitude, longitude, created_at
             ) VALUES (
                 :dossier_id, :type_dossier, :date_infraction, :lieu, :type_infraction,
-                :description, :reference_loi, :amende, :payed, :photos, NOW()
+                :description, :reference_loi, :amende, :payed, :photos, :latitude, :longitude, NOW()
             )";
             
             $stmt = $this->db->prepare($query);
@@ -36,6 +51,12 @@ class ContraventionController extends BaseController {
             $payed = $data['payed'] ?? '0';
             $stmt->bindParam(':payed', $payed);
             $stmt->bindParam(':photos', $data['photos']);
+            
+            // Gérer les coordonnées géographiques
+            $latitude = !empty($data['latitude']) ? floatval($data['latitude']) : null;
+            $longitude = !empty($data['longitude']) ? floatval($data['longitude']) : null;
+            $stmt->bindParam(':latitude', $latitude);
+            $stmt->bindParam(':longitude', $longitude);
             
             if ($stmt->execute()) {
                 return [
@@ -233,22 +254,91 @@ class ContraventionController extends BaseController {
     }
     
     /**
-     * Create simple PDF file
+     * Create simple PDF file using basic PDF structure
      */
     private function createSimplePdf($html, $filepath, $contravention) {
-        // For now, create a simple text file with PDF extension
-        // In production, use a proper PDF library like TCPDF or DomPDF
+        // Create a basic PDF structure
+        $pdf_content = $this->generateBasicPdf($contravention);
         
-        $content = "CONTRAVENTION N° " . $contravention['id'] . "\n\n";
-        $content .= "Date d'infraction: " . ($contravention['date_infraction'] ?? 'N/A') . "\n";
+        // Write to file
+        file_put_contents($filepath, $pdf_content);
+    }
+    
+    /**
+     * Generate basic PDF content using wkhtmltopdf or fallback to HTML
+     */
+    private function generateBasicPdf($contravention) {
+        // Try to use wkhtmltopdf if available, otherwise create HTML file
+        $html = $this->generatePdfHtml($contravention);
+        
+        // Check if wkhtmltopdf is available
+        $wkhtmltopdf = shell_exec('which wkhtmltopdf 2>/dev/null');
+        
+        if (!empty($wkhtmltopdf)) {
+            // Use wkhtmltopdf to convert HTML to PDF
+            $tempHtml = tempnam(sys_get_temp_dir(), 'contravention_') . '.html';
+            file_put_contents($tempHtml, $html);
+            
+            $tempPdf = tempnam(sys_get_temp_dir(), 'contravention_') . '.pdf';
+            $command = "wkhtmltopdf --page-size A4 --margin-top 20mm --margin-bottom 20mm --margin-left 15mm --margin-right 15mm '$tempHtml' '$tempPdf' 2>/dev/null";
+            
+            exec($command, $output, $return_code);
+            
+            if ($return_code === 0 && file_exists($tempPdf)) {
+                $pdfContent = file_get_contents($tempPdf);
+                unlink($tempHtml);
+                unlink($tempPdf);
+                return $pdfContent;
+            }
+            
+            // Clean up temp files if command failed
+            if (file_exists($tempHtml)) unlink($tempHtml);
+            if (file_exists($tempPdf)) unlink($tempPdf);
+        }
+        
+        // Fallback: Create a minimal valid PDF
+        return $this->createMinimalPdf($contravention);
+    }
+    
+    /**
+     * Create a minimal valid PDF structure
+     */
+    private function createMinimalPdf($contravention) {
+        $content = "BUREAU DE CONTROLE ROUTIER\n\n";
+        $content .= "CONTRAVENTION N° " . ($contravention['id'] ?? 'N/A') . "\n\n";
+        $content .= "Date: " . ($contravention['date_infraction'] ?? 'N/A') . "\n";
         $content .= "Lieu: " . ($contravention['lieu'] ?? 'N/A') . "\n";
-        $content .= "Type d'infraction: " . ($contravention['type_infraction'] ?? 'N/A') . "\n";
+        $content .= "Type: " . ($contravention['type_infraction'] ?? 'N/A') . "\n";
         $content .= "Description: " . ($contravention['description'] ?? 'N/A') . "\n";
-        $content .= "Référence loi: " . ($contravention['reference_loi'] ?? 'N/A') . "\n";
-        $content .= "Montant amende: " . ($contravention['amende'] ?? 'N/A') . " FC\n";
-        $content .= "Statut paiement: " . ($contravention['payed'] === 'oui' ? 'Payée' : 'Non payée') . "\n";
+        $content .= "Ref. loi: " . ($contravention['reference_loi'] ?? 'N/A') . "\n";
+        $content .= "Amende: " . ($contravention['amende'] ?? 'N/A') . " FC\n";
+        $content .= "Statut: " . ($contravention['payed'] === 'oui' ? 'Payee' : 'Non payee') . "\n";
         
-        file_put_contents($filepath, $content);
+        if (!empty($contravention['latitude']) && !empty($contravention['longitude'])) {
+            $content .= "\nCoordonnees GPS:\n";
+            $content .= "Lat: " . $contravention['latitude'] . "\n";
+            $content .= "Lng: " . $contravention['longitude'] . "\n";
+        }
+        
+        // Create a minimal PDF structure
+        $pdf = "%PDF-1.4\n";
+        $pdf .= "1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n";
+        $pdf .= "2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n";
+        $pdf .= "3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n";
+        
+        // Escape content for PDF
+        $escapedContent = str_replace(['(', ')', '\\'], ['\\(', '\\)', '\\\\'], $content);
+        $stream = "BT /F1 12 Tf 50 750 Td ($escapedContent) Tj ET";
+        $streamLength = strlen($stream);
+        
+        $pdf .= "4 0 obj<</Length $streamLength>>stream\n$stream\nendstream\nendobj\n";
+        $pdf .= "5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\n";
+        
+        $xrefPos = strlen($pdf);
+        $pdf .= "xref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000251 00000 n \n0000000340 00000 n \n";
+        $pdf .= "trailer<</Size 6/Root 1 0 R>>\nstartxref\n$xrefPos\n%%EOF";
+        
+        return $pdf;
     }
     
     /**
@@ -301,6 +391,126 @@ class ContraventionController extends BaseController {
             return [
                 'success' => false,
                 'message' => 'Erreur lors de la mise à jour du statut'
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erreur lors de la mise à jour: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Update contravention (superadmin only)
+     */
+    public function update($data) {
+        try {
+            // Vérifier que l'ID est fourni
+            if (!isset($data['id']) || empty($data['id'])) {
+                return [
+                    'success' => false,
+                    'message' => 'ID de contravention requis'
+                ];
+            }
+
+            $contraventionId = (int)$data['id'];
+
+            // Vérifier que la contravention existe
+            $checkQuery = "SELECT * FROM {$this->table} WHERE id = :id";
+            $checkStmt = $this->db->prepare($checkQuery);
+            $checkStmt->bindParam(':id', $contraventionId);
+            $checkStmt->execute();
+            
+            $existingContravention = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$existingContravention) {
+                return [
+                    'success' => false,
+                    'message' => 'Contravention introuvable'
+                ];
+            }
+
+            // Vérifier si les colonnes latitude/longitude existent, sinon les ajouter
+            try {
+                $checkLat = $this->db->query("SHOW COLUMNS FROM {$this->table} LIKE 'latitude'");
+                $checkLng = $this->db->query("SHOW COLUMNS FROM {$this->table} LIKE 'longitude'");
+                
+                if ($checkLat->rowCount() == 0 || $checkLng->rowCount() == 0) {
+                    $this->db->exec("ALTER TABLE {$this->table} 
+                        ADD COLUMN latitude DECIMAL(10, 8) DEFAULT NULL,
+                        ADD COLUMN longitude DECIMAL(11, 8) DEFAULT NULL");
+                }
+            } catch (Exception $e) {
+                error_log("Warning: Could not add lat/lng columns: " . $e->getMessage());
+            }
+
+            // Préparer la requête de mise à jour
+            $updateQuery = "UPDATE {$this->table} SET 
+                date_infraction = :date_infraction,
+                lieu = :lieu,
+                type_infraction = :type_infraction,
+                description = :description,
+                reference_loi = :reference_loi,
+                amende = :amende,
+                payed = :payed,
+                latitude = :latitude,
+                longitude = :longitude,
+                updated_at = NOW()
+                WHERE id = :id";
+
+            $stmt = $this->db->prepare($updateQuery);
+            
+            // Bind parameters
+            $stmt->bindParam(':id', $contraventionId);
+            $stmt->bindParam(':date_infraction', $data['date_infraction']);
+            $stmt->bindParam(':lieu', $data['lieu']);
+            $stmt->bindParam(':type_infraction', $data['type_infraction']);
+            $stmt->bindParam(':description', $data['description']);
+            $stmt->bindParam(':reference_loi', $data['reference_loi']);
+            $stmt->bindParam(':amende', $data['amende']);
+            
+            $payed = $data['payed'] ?? '0';
+            $stmt->bindParam(':payed', $payed);
+            
+            // Gérer les coordonnées géographiques
+            $latitude = !empty($data['latitude']) ? floatval($data['latitude']) : null;
+            $longitude = !empty($data['longitude']) ? floatval($data['longitude']) : null;
+            $stmt->bindParam(':latitude', $latitude);
+            $stmt->bindParam(':longitude', $longitude);
+
+            if ($stmt->execute()) {
+                // Préparer les données pour le log
+                $changes = [];
+                $fields = ['date_infraction', 'lieu', 'type_infraction', 'description', 'reference_loi', 'amende', 'payed', 'latitude', 'longitude'];
+                
+                foreach ($fields as $field) {
+                    $oldValue = $existingContravention[$field] ?? null;
+                    $newValue = $data[$field] ?? null;
+                    
+                    // Conversion spéciale pour les coordonnées
+                    if ($field === 'latitude' || $field === 'longitude') {
+                        $newValue = !empty($newValue) ? floatval($newValue) : null;
+                    }
+                    
+                    if ($oldValue != $newValue) {
+                        $changes[$field] = [
+                            'old' => $oldValue,
+                            'new' => $newValue
+                        ];
+                    }
+                }
+
+                return [
+                    'success' => true,
+                    'message' => 'Contravention mise à jour avec succès',
+                    'id' => $contraventionId,
+                    'changes' => $changes
+                ];
+            }
+            
+            return [
+                'success' => false,
+                'message' => 'Erreur lors de la mise à jour'
             ];
             
         } catch (Exception $e) {

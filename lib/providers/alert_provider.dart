@@ -18,28 +18,45 @@ class AlertProvider with ChangeNotifier {
   }
 
   List<dynamic> get avisRechercheActifs {
-    if (_alerts == null || _alerts!['data'] == null) return [];
-    return (_alerts!['data']['avis_recherche_actifs'] as List?) ?? [];
+    if (_alerts == null) return [];
+    final data = _alerts!['data'];
+    if (data == null || data is! Map<String, dynamic>) return [];
+    return (data['avis_recherche_actifs'] as List?) ?? [];
   }
 
   List<dynamic> get assurancesExpirees {
-    if (_alerts == null || _alerts!['data'] == null) return [];
-    return (_alerts!['data']['assurances_expirees'] as List?) ?? [];
+    if (_alerts == null) return [];
+    final data = _alerts!['data'];
+    if (data == null || data is! Map<String, dynamic>) return [];
+    return (data['assurances_expirees'] as List?) ?? [];
   }
 
   List<dynamic> get permisTemporairesExpires {
-    if (_alerts == null || _alerts!['data'] == null) return [];
-    return (_alerts!['data']['permis_temporaires_expires'] as List?) ?? [];
+    if (_alerts == null) return [];
+    final data = _alerts!['data'];
+    if (data == null || data is! Map<String, dynamic>) return [];
+    return (data['permis_temporaires_expires'] as List?) ?? [];
   }
 
   List<dynamic> get plaquesExpirees {
-    if (_alerts == null || _alerts!['data'] == null) return [];
-    return (_alerts!['data']['plaques_expirees'] as List?) ?? [];
+    if (_alerts == null) return [];
+    final data = _alerts!['data'];
+    if (data == null || data is! Map<String, dynamic>) return [];
+    return (data['plaques_expirees'] as List?) ?? [];
   }
 
   List<dynamic> get permisConduireExpires {
-    if (_alerts == null || _alerts!['data'] == null) return [];
-    return (_alerts!['data']['permis_conduire_expires'] as List?) ?? [];
+    if (_alerts == null) return [];
+    final data = _alerts!['data'];
+    if (data == null || data is! Map<String, dynamic>) return [];
+    return (data['permis_conduire_expires'] as List?) ?? [];
+  }
+
+  List<dynamic> get contraventionsNonPayees {
+    if (_alerts == null) return [];
+    final data = _alerts!['data'];
+    if (data == null || data is! Map<String, dynamic>) return [];
+    return (data['contraventions_non_payees'] as List?) ?? [];
   }
 
   /// Charge toutes les alertes

@@ -736,6 +736,70 @@ switch (true) {
         }
         break;
     
+    // Association particulier-véhicule (endpoint alternatif pour compatibilité)
+    case $method === 'POST' && $path === '/particulier-vehicule/associate':
+        try {
+            // Lire les données JSON du body
+            $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            
+            $particulierId = $data['particulier_id'] ?? null;
+            $vehiculePlaqueId = $data['vehicule_plaque_id'] ?? null;
+            $role = $data['role'] ?? 'proprietaire';
+            $dateAssoc = $data['date_assoc'] ?? null;
+            $notes = $data['notes'] ?? null;
+            $username = $data['username'] ?? null;
+            $force = $data['force'] ?? false; // Nouveau paramètre pour forcer l'association
+            
+            if (!$particulierId || !$vehiculePlaqueId) {
+                throw new Exception('ID particulier et ID véhicule requis');
+            }
+            
+            $controller = new ParticulierVehiculeController();
+            $result = $controller->associer(
+                $particulierId,
+                $vehiculePlaqueId,
+                $role,
+                $dateAssoc,
+                $notes,
+                $username,
+                $force
+            );
+            
+            // Si requiresConfirmation, retourner la réponse sans erreur
+            if (isset($result['requiresConfirmation']) && $result['requiresConfirmation']) {
+                echo json_encode($result);
+                break;
+            }
+            
+            if (!$result['success']) {
+                throw new Exception($result['message']);
+            }
+            
+            // Log de l'activité
+            LogController::record(
+                $username,
+                'Association particulier-véhicule',
+                [
+                    'particulier_id' => $particulierId,
+                    'vehicule_plaque_id' => $vehiculePlaqueId,
+                    'role' => $role,
+                    'forced' => $force,
+                    'action' => 'associate'
+                ],
+                $_SERVER['REMOTE_ADDR'] ?? null,
+                $_SERVER['HTTP_USER_AGENT'] ?? null
+            );
+            
+            echo json_encode($result);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
+            ]);
+        }
+        break;
+    
     // Association entreprise-véhicule
     case $method === 'POST' && $path === '/entreprise-vehicule/associer':
         try {
@@ -1758,11 +1822,17 @@ switch (true) {
             $result = $contraventionController->create($data);
             
             if ($result['success']) {
-                // Generate PDF if creation was successful
-                $pdfResult = $contraventionController->generatePdf($result['id']);
+                // Générer automatiquement le PDF et enregistrer le chemin
+                $contraventionId = $result['id'];
+                $pdfResult = $contraventionController->generatePdf($contraventionId);
+                
                 if ($pdfResult['success']) {
                     $result['pdf_url'] = $pdfResult['pdf_url'];
+                    $result['pdf_path'] = $pdfResult['pdf_path'];
                 }
+                
+                // Ajouter l'URL de prévisualisation
+                $result['preview_url'] = '/contravention_display.php?id=' . $result['id'];
                 
                 // Log activity
                 LogController::record(
@@ -1789,6 +1859,116 @@ switch (true) {
             echo json_encode([
                 'status' => 'error',
                 'message' => 'Erreur lors de la création de la contravention: ' . $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Affichage d'une contravention
+    case $method === 'GET' && path_match('/contravention/{id}/display', $path, $p):
+        try {
+            $contraventionId = (int)($p[0] ?? 0);
+            
+            if ($contraventionId <= 0) {
+                http_response_code(400);
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'ID de contravention invalide'
+                ]);
+                break;
+            }
+            
+            // Rediriger vers le fichier de prévisualisation
+            $displayUrl = '/contravention_display.php?id=' . $contraventionId;
+            header('Location: ' . $displayUrl);
+            exit;
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Erreur lors de l\'affichage: ' . $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Modification de contravention (superadmin uniquement)
+    case $method === 'POST' && $path === '/contravention/update':
+        try {
+            // Vérifier les permissions superadmin
+            // Pour l'instant, on simule la vérification - à remplacer par votre système d'auth
+            $headers = getallheaders();
+            $authToken = $headers['Authorization'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+            
+            // Simulation de vérification superadmin - remplacez par votre logique
+            $isSuperAdmin = true; // À remplacer par une vraie vérification
+            
+            if (!$isSuperAdmin) {
+                http_response_code(403);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Accès refusé. Action réservée aux super-administrateurs.'
+                ]);
+                break;
+            }
+            
+            $currentUser = ['username' => 'superadmin', 'role' => 'superadmin']; // Simulation
+
+            $isMultipart = isset($_SERVER['CONTENT_TYPE']) && stripos($_SERVER['CONTENT_TYPE'], 'multipart/form-data') !== false;
+            
+            if ($isMultipart) {
+                $data = $_POST;
+            } else {
+                $input = file_get_contents('php://input');
+                $data = json_decode($input, true);
+                
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    throw new Exception('JSON invalide');
+                }
+            }
+
+            // Vérifier les champs requis
+            $requiredFields = ['id', 'date_infraction', 'lieu', 'type_infraction', 'amende'];
+            foreach ($requiredFields as $field) {
+                if (!isset($data[$field]) || empty($data[$field])) {
+                    http_response_code(400);
+                    echo json_encode([
+                        'success' => false,
+                        'message' => "Champ requis manquant: $field"
+                    ]);
+                    break 2;
+                }
+            }
+
+            // Modifier la contravention
+            $contraventionController = new ContraventionController();
+            $result = $contraventionController->update($data);
+            
+            if ($result['success']) {
+                // Logger l'action de modification
+                LogController::record(
+                    $currentUser['username'] ?? 'superadmin',
+                    'Modification contravention',
+                    [
+                        'contravention_id' => $result['id'],
+                        'changes' => $result['changes'],
+                        'action_type' => 'update_contravention',
+                        'user_role' => $currentUser['role']
+                    ],
+                    $_SERVER['REMOTE_ADDR'] ?? null,
+                    $_SERVER['HTTP_USER_AGENT'] ?? null
+                );
+                
+                echo json_encode($result);
+            } else {
+                http_response_code(400);
+                echo json_encode($result);
+            }
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur lors de la modification de la contravention: ' . $e->getMessage()
             ]);
         }
         break;
@@ -3457,7 +3637,8 @@ switch (true) {
                 'assurances_expirees' => [],
                 'permis_temporaires_expires' => [],
                 'plaques_expirees' => [],
-                'permis_conduire_expires' => []
+                'permis_conduire_expires' => [],
+                'contraventions_non_payees' => []
             ];
             
             // 1. Avis de recherche actifs
@@ -3525,12 +3706,35 @@ switch (true) {
             $stmt->execute();
             $alerts['permis_conduire_expires'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
+            // 6. Contraventions non payées
+            $stmt = $pdo->prepare("
+                SELECT c.*, 
+                    CASE 
+                        WHEN c.type_dossier = 'particulier' THEN p.nom
+                        WHEN c.type_dossier = 'entreprise' THEN e.designation
+                        ELSE 'N/A'
+                    END as nom_contrevenant,
+                    CASE 
+                        WHEN c.type_dossier = 'particulier' THEN p.gsm
+                        WHEN c.type_dossier = 'entreprise' THEN COALESCE(e.gsm, e.telephone_contact)
+                        ELSE NULL
+                    END as telephone_contrevenant
+                FROM contraventions c
+                LEFT JOIN particuliers p ON c.type_dossier = 'particulier' AND c.dossier_id = p.id
+                LEFT JOIN entreprises e ON c.type_dossier = 'entreprise' AND c.dossier_id = e.id
+                WHERE c.payed = 'non'
+                ORDER BY c.date_infraction DESC
+            ");
+            $stmt->execute();
+            $alerts['contraventions_non_payees'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
             // Compter les alertes
             $total = count($alerts['avis_recherche_actifs']) +
                      count($alerts['assurances_expirees']) +
                      count($alerts['permis_temporaires_expires']) +
                      count($alerts['plaques_expirees']) +
-                     count($alerts['permis_conduire_expires']);
+                     count($alerts['permis_conduire_expires']) +
+                     count($alerts['contraventions_non_payees']);
             
             // Logging de la consultation
             LogController::record(
@@ -3543,6 +3747,7 @@ switch (true) {
                     'permis_temporaires_expires' => count($alerts['permis_temporaires_expires']),
                     'plaques_expirees' => count($alerts['plaques_expirees']),
                     'permis_conduire_expires' => count($alerts['permis_conduire_expires']),
+                    'contraventions_non_payees' => count($alerts['contraventions_non_payees']),
                     'endpoint' => 'GET /alerts'
                 ]),
                 $_SERVER['REMOTE_ADDR'] ?? '',
@@ -3560,6 +3765,99 @@ switch (true) {
             echo json_encode([
                 'success' => false,
                 'message' => 'Erreur serveur: ' . $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Sauvegarde du PDF de contravention
+    case $method === 'POST' && preg_match('/^\/contravention\/(\d+)\/save-pdf$/', $path, $matches):
+        try {
+            $contraventionId = intval($matches[1]);
+            
+            if (!isset($_FILES['pdf']) || $_FILES['pdf']['error'] !== UPLOAD_ERR_OK) {
+                throw new Exception('Fichier PDF manquant ou invalide');
+            }
+            
+            $pdo = getDbConnection();
+            
+            // Vérifier que la contravention existe
+            $stmt = $pdo->prepare("SELECT id FROM contraventions WHERE id = :id");
+            $stmt->bindParam(':id', $contraventionId);
+            $stmt->execute();
+            
+            if (!$stmt->fetch()) {
+                throw new Exception('Contravention introuvable');
+            }
+            
+            // Créer le répertoire de destination
+            $uploadDir = __DIR__ . '/../uploads/contraventions/pdf/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            
+            // Générer le nom du fichier
+            $fileName = 'contravention_' . $contraventionId . '_' . date('Y-m-d_H-i-s') . '.pdf';
+            $filePath = $uploadDir . $fileName;
+            $relativePath = '/api/uploads/contraventions/pdf/' . $fileName;
+            
+            // Déplacer le fichier uploadé
+            if (!move_uploaded_file($_FILES['pdf']['tmp_name'], $filePath)) {
+                throw new Exception('Erreur lors de la sauvegarde du fichier');
+            }
+            
+            // Mettre à jour la base de données
+            $updateStmt = $pdo->prepare("UPDATE contraventions SET pdf_path = :pdf_path WHERE id = :id");
+            $updateStmt->bindParam(':pdf_path', $relativePath);
+            $updateStmt->bindParam(':id', $contraventionId);
+            
+            if (!$updateStmt->execute()) {
+                // Supprimer le fichier si la mise à jour échoue
+                unlink($filePath);
+                throw new Exception('Erreur lors de la mise à jour de la base de données');
+            }
+            
+            echo json_encode([
+                'ok' => true,
+                'message' => 'PDF sauvegardé avec succès',
+                'pdf_path' => $relativePath,
+                'file_name' => $fileName
+            ]);
+            
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'ok' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Prévisualisation de contravention
+    case $method === 'GET' && preg_match('/^\/contravention\/(\d+)\/preview$/', $path, $matches):
+        try {
+            $contraventionId = intval($matches[1]);
+            $pdo = getDbConnection();
+            
+            // Récupérer la contravention
+            $stmt = $pdo->prepare("SELECT * FROM contraventions WHERE id = :id");
+            $stmt->bindParam(':id', $contraventionId);
+            $stmt->execute();
+            $contravention = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$contravention) {
+                throw new Exception('Contravention introuvable');
+            }
+            
+            // Rediriger vers le fichier de prévisualisation
+            $previewUrl = '/contravention_display.php?id=' . $contraventionId;
+            header('Location: ' . $previewUrl);
+            exit;
+            
+        } catch (Exception $e) {
+            http_response_code(404);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage()
             ]);
         }
         break;

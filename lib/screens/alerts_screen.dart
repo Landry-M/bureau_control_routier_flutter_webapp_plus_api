@@ -11,6 +11,44 @@ class AlertsScreen extends StatefulWidget {
 }
 
 class _AlertsScreenState extends State<AlertsScreen> {
+  // Variables pour les filtres
+  final Set<String> _activeFilters = <String>{};
+  bool _showFilters = false;
+  
+  // Types d'alertes disponibles
+  final Map<String, Map<String, dynamic>> _filterTypes = {
+    'avis_recherche': {
+      'label': 'Avis de recherche',
+      'icon': Icons.search,
+      'color': Colors.red,
+    },
+    'assurances_expirees': {
+      'label': 'Assurances expirées',
+      'icon': Icons.shield_outlined,
+      'color': Colors.orange,
+    },
+    'permis_temporaires_expires': {
+      'label': 'Permis temporaires expirés',
+      'icon': Icons.card_membership_outlined,
+      'color': Colors.purple,
+    },
+    'plaques_expirees': {
+      'label': 'Plaques expirées',
+      'icon': Icons.directions_car_outlined,
+      'color': Colors.blue,
+    },
+    'permis_conduire_expires': {
+      'label': 'Permis de conduire expirés',
+      'icon': Icons.credit_card_outlined,
+      'color': Colors.indigo,
+    },
+    'contraventions_non_payees': {
+      'label': 'Contraventions non payées',
+      'icon': Icons.receipt_long_outlined,
+      'color': Colors.deepOrange,
+    },
+  };
+
   @override
   void initState() {
     super.initState();
@@ -38,6 +76,53 @@ class _AlertsScreenState extends State<AlertsScreen> {
     }
   }
 
+  // Méthodes de filtrage
+  bool _shouldShowSection(String filterKey, List<dynamic> items) {
+    if (_activeFilters.isEmpty) return items.isNotEmpty;
+    return _activeFilters.contains(filterKey) && items.isNotEmpty;
+  }
+
+  void _toggleFilter(String filterKey) {
+    setState(() {
+      if (_activeFilters.contains(filterKey)) {
+        _activeFilters.remove(filterKey);
+      } else {
+        _activeFilters.add(filterKey);
+      }
+    });
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _activeFilters.clear();
+    });
+  }
+
+  int _getFilteredAlertsCount(AlertProvider alertProvider) {
+    if (_activeFilters.isEmpty) return alertProvider.totalAlerts;
+    
+    int count = 0;
+    if (_activeFilters.contains('avis_recherche')) {
+      count += alertProvider.avisRechercheActifs.length;
+    }
+    if (_activeFilters.contains('assurances_expirees')) {
+      count += alertProvider.assurancesExpirees.length;
+    }
+    if (_activeFilters.contains('permis_temporaires_expires')) {
+      count += alertProvider.permisTemporairesExpires.length;
+    }
+    if (_activeFilters.contains('plaques_expirees')) {
+      count += alertProvider.plaquesExpirees.length;
+    }
+    if (_activeFilters.contains('permis_conduire_expires')) {
+      count += alertProvider.permisConduireExpires.length;
+    }
+    if (_activeFilters.contains('contraventions_non_payees')) {
+      count += alertProvider.contraventionsNonPayees.length;
+    }
+    return count;
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +132,15 @@ class _AlertsScreenState extends State<AlertsScreen> {
       appBar: AppBar(
         title: const Text('Alertes'),
         actions: [
+          IconButton(
+            icon: Icon(_showFilters ? Icons.filter_list_off : Icons.filter_list),
+            onPressed: () {
+              setState(() {
+                _showFilters = !_showFilters;
+              });
+            },
+            tooltip: _showFilters ? 'Masquer les filtres' : 'Afficher les filtres',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadAlerts,
@@ -145,7 +239,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            '${alertProvider.totalAlerts} alerte(s) active(s)',
+                            '${_getFilteredAlertsCount(alertProvider)} alerte(s) active(s)' +
+                            (_activeFilters.isNotEmpty ? ' (filtrées)' : ''),
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: Colors.white,
@@ -157,8 +252,14 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   ),
                   const SizedBox(height: 16),
 
+                  // Section des filtres
+                  if (_showFilters) ...[
+                    _buildFiltersSection(alertProvider),
+                    const SizedBox(height: 16),
+                  ],
+
                   // 1. Avis de recherche actifs
-                  if (alertProvider.avisRechercheActifs.isNotEmpty) ...[
+                  if (_shouldShowSection('avis_recherche', alertProvider.avisRechercheActifs)) ...[
                     _buildSectionHeader(
                       context,
                       'Avis de recherche actifs',
@@ -174,7 +275,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   ],
 
                   // 2. Assurances expirées
-                  if (alertProvider.assurancesExpirees.isNotEmpty) ...[
+                  if (_shouldShowSection('assurances_expirees', alertProvider.assurancesExpirees)) ...[
                     _buildSectionHeader(
                       context,
                       'Assurances expirées',
@@ -190,7 +291,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   ],
 
                   // 3. Permis temporaires expirés
-                  if (alertProvider.permisTemporairesExpires.isNotEmpty) ...[
+                  if (_shouldShowSection('permis_temporaires_expires', alertProvider.permisTemporairesExpires)) ...[
                     _buildSectionHeader(
                       context,
                       'Permis temporaires expirés',
@@ -206,7 +307,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   ],
 
                   // 4. Plaques expirées
-                  if (alertProvider.plaquesExpirees.isNotEmpty) ...[
+                  if (_shouldShowSection('plaques_expirees', alertProvider.plaquesExpirees)) ...[
                     _buildSectionHeader(
                       context,
                       'Plaques d\'immatriculation expirées',
@@ -222,7 +323,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   ],
 
                   // 5. Permis de conduire expirés
-                  if (alertProvider.permisConduireExpires.isNotEmpty) ...[
+                  if (_shouldShowSection('permis_conduire_expires', alertProvider.permisConduireExpires)) ...[
                     _buildSectionHeader(
                       context,
                       'Permis de conduire expirés',
@@ -233,6 +334,22 @@ class _AlertsScreenState extends State<AlertsScreen> {
                     const SizedBox(height: 12),
                     ...alertProvider.permisConduireExpires.map((permis) => 
                       _buildPermisConduireCard(context, permis)
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  // 6. Contraventions non payées
+                  if (_shouldShowSection('contraventions_non_payees', alertProvider.contraventionsNonPayees)) ...[
+                    _buildSectionHeader(
+                      context,
+                      'Contraventions non payées',
+                      alertProvider.contraventionsNonPayees.length,
+                      Icons.receipt_long_outlined,
+                      Colors.deepOrange,
+                    ),
+                    const SizedBox(height: 12),
+                    ...alertProvider.contraventionsNonPayees.map((contravention) => 
+                      _buildContraventionCard(context, contravention)
                     ),
                     const SizedBox(height: 24),
                   ],
@@ -285,6 +402,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
     final cibleDetails = avis['cible_details'];
     final isVehicule = avis['cible_type'] == 'vehicule_plaque';
     
+    // Vérifier que cibleDetails est bien un Map
+    final Map<String, dynamic>? safeDetails = 
+        (cibleDetails is Map<String, dynamic>) ? cibleDetails : null;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -309,23 +430,23 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   children: [
                     Text(
                       isVehicule 
-                        ? 'Véhicule: ${cibleDetails?['plaque'] ?? 'N/A'}'
-                        : 'Particulier: ${cibleDetails?['nom'] ?? 'N/A'}',
+                        ? 'Véhicule: ${safeDetails?['plaque'] ?? 'N/A'}'
+                        : 'Particulier: ${safeDetails?['nom'] ?? 'N/A'}',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
                     ),
-                    if (isVehicule && cibleDetails != null)
+                    if (isVehicule && safeDetails != null)
                       Text(
-                        '${cibleDetails['marque']} ${cibleDetails['modele'] ?? ''}',
+                        '${safeDetails['marque']} ${safeDetails['modele'] ?? ''}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: Colors.white,
                         ),
                       ),
-                    if (!isVehicule && cibleDetails != null)
+                    if (!isVehicule && safeDetails != null)
                       Text(
-                        'Tél: ${cibleDetails['gsm'] ?? 'N/A'}',
+                        'Tél: ${safeDetails['gsm'] ?? 'N/A'}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: Colors.white,
                         ),
@@ -459,14 +580,14 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      permis['numero'] ?? 'N/A',
+                      (permis['numero'] is String) ? permis['numero'] : 'N/A',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
                     ),
                     Text(
-                      permis['cible_nom'] ?? 'N/A',
+                      (permis['cible_nom'] is String) ? permis['cible_nom'] : 'N/A',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: Colors.white,
                       ),
@@ -478,7 +599,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            permis['motif'] ?? 'N/A',
+            (permis['motif'] is String) ? permis['motif'] : 'N/A',
             style: theme.textTheme.bodySmall?.copyWith(
               color: Colors.white,
             ),
@@ -585,14 +706,14 @@ class _AlertsScreenState extends State<AlertsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      permis['nom'] ?? 'N/A',
+                      (permis['nom'] is String) ? permis['nom'] : 'N/A',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
                     ),
                     Text(
-                      'Tél: ${permis['gsm'] ?? 'N/A'}',
+                      'Tél: ${(permis['gsm'] is String) ? permis['gsm'] : 'N/A'}',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: Colors.white,
                       ),
@@ -602,10 +723,10 @@ class _AlertsScreenState extends State<AlertsScreen> {
               ),
             ],
           ),
-          if (permis['adresse'] != null && permis['adresse'].toString().isNotEmpty) ...[
+          if (permis['adresse'] is String && permis['adresse'].toString().isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              permis['adresse'],
+              permis['adresse'].toString(),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: Colors.white,
               ),
@@ -622,5 +743,233 @@ class _AlertsScreenState extends State<AlertsScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildContraventionCard(BuildContext context, Map<String, dynamic> contravention) {
+    final theme = Theme.of(context);
+    final isEntreprise = contravention['type_dossier'] == 'entreprise';
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isEntreprise ? Icons.business_outlined : Icons.person_outline,
+                size: 18,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      (contravention['nom_contrevenant'] is String) ? contravention['nom_contrevenant'] : 'N/A',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    if (contravention['telephone_contrevenant'] is String)
+                      Text(
+                        'Tél: ${contravention['telephone_contrevenant']}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.white,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (contravention['amende'] != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red.withOpacity(0.5)),
+                  ),
+                  child: Text(
+                    '${contravention['amende']} FC',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red[300],
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (contravention['type_infraction'] != null) ...[
+            Text(
+              contravention['type_infraction'],
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+          if (contravention['lieu'] != null) ...[
+            Text(
+              'Lieu: ${contravention['lieu']}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+          Text(
+            'Infraction du: ${_formatDate(contravention['date_infraction'])}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: Colors.white,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Section des filtres
+  Widget _buildFiltersSection(AlertProvider alertProvider) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.filter_list, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Filtrer les alertes',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              if (_activeFilters.isNotEmpty)
+                TextButton.icon(
+                  onPressed: _clearAllFilters,
+                  icon: const Icon(Icons.clear_all, size: 16, color: Colors.white70),
+                  label: const Text(
+                    'Tout effacer',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _filterTypes.entries.map((entry) {
+              final filterKey = entry.key;
+              final filterData = entry.value;
+              final isActive = _activeFilters.contains(filterKey);
+              final count = _getAlertCountForFilter(alertProvider, filterKey);
+              
+              return FilterChip(
+                selected: isActive,
+                onSelected: count > 0 ? (selected) => _toggleFilter(filterKey) : null,
+                avatar: Icon(
+                  filterData['icon'] as IconData,
+                  size: 16,
+                  color: count > 0 
+                    ? (isActive ? Colors.white : filterData['color'] as Color)
+                    : Colors.grey,
+                ),
+                label: Text(
+                  '${filterData['label']} ($count)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: count > 0 
+                      ? (isActive ? Colors.white : Colors.white70)
+                      : Colors.grey,
+                  ),
+                ),
+                backgroundColor: count > 0 
+                  ? (filterData['color'] as Color).withOpacity(0.2)
+                  : Colors.grey.withOpacity(0.1),
+                selectedColor: filterData['color'] as Color,
+                checkmarkColor: Colors.white,
+                side: BorderSide(
+                  color: count > 0 
+                    ? (filterData['color'] as Color).withOpacity(0.5)
+                    : Colors.grey.withOpacity(0.3),
+                ),
+                disabledColor: Colors.grey.withOpacity(0.1),
+              );
+            }).toList(),
+          ),
+          if (_activeFilters.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.blue[300]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${_activeFilters.length} filtre(s) actif(s) - ${_getFilteredAlertsCount(alertProvider)} alerte(s) affichée(s)',
+                      style: TextStyle(
+                        color: Colors.blue[300],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  int _getAlertCountForFilter(AlertProvider alertProvider, String filterKey) {
+    switch (filterKey) {
+      case 'avis_recherche':
+        return alertProvider.avisRechercheActifs.length;
+      case 'assurances_expirees':
+        return alertProvider.assurancesExpirees.length;
+      case 'permis_temporaires_expires':
+        return alertProvider.permisTemporairesExpires.length;
+      case 'plaques_expirees':
+        return alertProvider.plaquesExpirees.length;
+      case 'permis_conduire_expires':
+        return alertProvider.permisConduireExpires.length;
+      case 'contraventions_non_payees':
+        return alertProvider.contraventionsNonPayees.length;
+      default:
+        return 0;
+    }
   }
 }

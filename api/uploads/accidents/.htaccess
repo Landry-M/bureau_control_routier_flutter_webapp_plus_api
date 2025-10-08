@@ -1,0 +1,12 @@
+# Accès libre aux fichiers d'accidents
+Header always set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+Header always set Access-Control-Allow-Headers "*"
+
+<FilesMatch ".*">
+    Order allow,deny
+    Allow from all
+    Require all granted
+</FilesMatch>
+
+Options +Indexes +FollowSymLinks

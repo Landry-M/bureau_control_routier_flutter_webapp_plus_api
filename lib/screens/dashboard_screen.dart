@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../utils/responsive.dart';
 import '../widgets/top_bar.dart';
+import '../widgets/sos_modal.dart';
 import '../config/api_config.dart';
 import '../providers/alert_provider.dart';
 import '../providers/auth_provider.dart';
@@ -31,12 +32,22 @@ class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
     super.didChangeDependencies();
     // Charger les alertes à chaque fois que les dépendances changent
     // (notamment lors du retour via pop)
-    _loadAlerts();
+    // Utiliser addPostFrameCallback pour éviter setState pendant build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAlerts();
+    });
   }
 
   void _loadAlerts() {
     final username = context.read<AuthProvider>().username;
     context.read<AlertProvider>().loadAlerts(username);
+  }
+
+  void _showSosModal(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const SosModal(),
+    );
   }
 
   @override
@@ -46,8 +57,10 @@ class _DashboardScreenState extends State<DashboardScreen> with RouteAware {
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        child: const Text('SOS'),
+        onPressed: () => _showSosModal(context),
+        backgroundColor: Colors.red.shade600,
+        foregroundColor: Colors.white,
+        child: const Text('SOS', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: SafeArea(
         child: Align(

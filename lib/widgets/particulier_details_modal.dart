@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:toastification/toastification.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:url_launcher/url_launcher.dart';
 import '../config/api_config.dart';
+import '../services/notification_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'contravention_map_viewer.dart';
+import 'edit_contravention_modal.dart';
 import '../providers/auth_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:toastification/toastification.dart';
 
 class ParticulierDetailsModal extends StatefulWidget {
   final Map<String, dynamic> particulier;
@@ -1003,6 +1006,16 @@ class _ParticulierDetailsModalState extends State<ParticulierDetailsModal>
                           flex: 1,
                           child: Text('PDF',
                               style: TextStyle(fontWeight: FontWeight.bold)))),
+                  DataColumn(
+                      label: Expanded(
+                          flex: 1,
+                          child: Text('Carte',
+                              style: TextStyle(fontWeight: FontWeight.bold)))),
+                  DataColumn(
+                      label: Expanded(
+                          flex: 1,
+                          child: Text('Modifier',
+                              style: TextStyle(fontWeight: FontWeight.bold)))),
                 ],
                 rows: _contraventions.map((contravention) {
                   return DataRow(
@@ -1055,6 +1068,32 @@ class _ParticulierDetailsModalState extends State<ParticulierDetailsModal>
                             padding: const EdgeInsets.all(4),
                           ),
                           tooltip: 'Voir le PDF',
+                        ),
+                      ),
+                      DataCell(
+                        IconButton(
+                          onPressed: () => _viewOnMap(contravention),
+                          icon: const Icon(Icons.map, size: 18),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.blue[700],
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(32, 32),
+                            padding: const EdgeInsets.all(4),
+                          ),
+                          tooltip: 'Voir sur la carte',
+                        ),
+                      ),
+                      DataCell(
+                        IconButton(
+                          onPressed: () => _editContravention(contravention),
+                          icon: const Icon(Icons.edit, size: 18),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.orange[700],
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(32, 32),
+                            padding: const EdgeInsets.all(4),
+                          ),
+                          tooltip: 'Modifier (Superadmin)',
                         ),
                       ),
                     ],
@@ -1335,34 +1374,96 @@ class _ParticulierDetailsModalState extends State<ParticulierDetailsModal>
     }
   }
 
-  void _viewPdf(Map<String, dynamic> contravention) {
-    final pdfPath = contravention['pdf_path'];
+  Future<void> _viewPdf(Map<String, dynamic> contravention) async {
+    try {
+      final contraventionId = contravention['id'];
+      if (contraventionId == null) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.warning,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Erreur'),
+          description: const Text('ID de contravention manquant'),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 3),
+        );
+        return;
+      }
 
-    if (pdfPath != null && pdfPath.toString().isNotEmpty) {
-      final pdfUrl = '${ApiConfig.baseUrl}/$pdfPath';
+      // Utiliser display_contravention pour un affichage cohérent
+      final displayUrl = '${ApiConfig.baseUrl}/contravention/$contraventionId/display';
 
+      // Ouvrir avec url_launcher
+      final uri = Uri.parse(displayUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Contravention ouverte'),
+          description: const Text('La contravention a été ouverte dans votre navigateur'),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 3),
+        );
+      } else {
+        throw Exception('Impossible d\'ouvrir l\'URL: $displayUrl');
+      }
+    } catch (e) {
       toastification.show(
         context: context,
-        type: ToastificationType.info,
+        type: ToastificationType.error,
         style: ToastificationStyle.fillColored,
-        title: const Text('PDF disponible'),
-        description: Text('URL du PDF: $pdfUrl'),
+        title: const Text('Erreur d\'affichage'),
+        description: Text('Erreur: ${e.toString()}'),
         alignment: Alignment.topRight,
-        autoCloseDuration: const Duration(seconds: 5),
-        showProgressBar: true,
-      );
-    } else {
-      toastification.show(
-        context: context,
-        type: ToastificationType.warning,
-        style: ToastificationStyle.fillColored,
-        title: const Text('PDF indisponible'),
-        description:
-            const Text('Aucun PDF n\'est disponible pour cette contravention'),
-        alignment: Alignment.topRight,
-        autoCloseDuration: const Duration(seconds: 3),
+        autoCloseDuration: const Duration(seconds: 4),
       );
     }
+  }
+
+  void _viewOnMap(Map<String, dynamic> contravention) {
+    final latitude = contravention['latitude'];
+    final longitude = contravention['longitude'];
+    
+    if (latitude != null && longitude != null) {
+      showDialog(
+        context: context,
+        builder: (context) => ContraventionMapViewer(
+          contravention: contravention,
+        ),
+      );
+    } else {
+      NotificationService.error(
+        context, 
+        'Aucune localisation disponible pour cette contravention'
+      );
+    }
+  }
+
+  void _editContravention(Map<String, dynamic> contravention) {
+    // Vérifier les permissions superadmin
+    final authProvider = context.read<AuthProvider>();
+    
+    if (!authProvider.isAuthenticated || authProvider.role != 'superadmin') {
+      NotificationService.error(
+        context,
+        'Accès refusé. Action réservée aux super-administrateurs.'
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => EditContraventionModal(
+        contravention: contravention,
+        onSuccess: () {
+          // Recharger les contraventions
+          _loadContraventions();
+        },
+      ),
+    );
   }
 
   Future<void> _updateArrestationStatus(

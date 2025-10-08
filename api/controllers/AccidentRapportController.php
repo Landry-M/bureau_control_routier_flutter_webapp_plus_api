@@ -184,7 +184,7 @@ class AccidentRapportController {
      */
     private function uploadImages($files, $subfolder) {
         $uploadedPaths = [];
-        $uploadDir = __DIR__ . '/../../uploads/' . $subfolder . '/';
+        $uploadDir = __DIR__ . '/../uploads/' . $subfolder . '/';
         
         // Créer le dossier s'il n'existe pas
         if (!is_dir($uploadDir)) {
@@ -200,7 +200,7 @@ class AccidentRapportController {
                     $filepath = $uploadDir . $filename;
                     
                     if (move_uploaded_file($files['tmp_name'][$key], $filepath)) {
-                        $uploadedPaths[] = '/uploads/' . $subfolder . '/' . $filename;
+                        $uploadedPaths[] = '/api/uploads/' . $subfolder . '/' . $filename;
                     }
                 }
             }

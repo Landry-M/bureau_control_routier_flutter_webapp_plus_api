@@ -1,0 +1,57 @@
+# Configuration CORS pour le dossier uploads
+# Permettre l'accès libre à toutes les ressources
+
+# Autoriser l'accès depuis n'importe quelle origine
+Header always set Access-Control-Allow-Origin "*"
+
+# Autoriser toutes les méthodes HTTP
+Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, HEAD"
+
+# Autoriser tous les headers
+Header always set Access-Control-Allow-Headers "*"
+
+# Pas de cache pour les headers CORS
+Header always set Access-Control-Max-Age "0"
+
+# Permettre l'accès aux credentials (optionnel)
+Header always set Access-Control-Allow-Credentials "true"
+
+# Autoriser l'accès à tous les types de fichiers
+<FilesMatch ".*">
+    Order allow,deny
+    Allow from all
+    
+    # Désactiver les restrictions d'accès
+    Satisfy Any
+    
+    # Permettre l'accès direct aux fichiers
+    Options +Indexes +FollowSymLinks
+</FilesMatch>
+
+# Configuration spécifique pour les images et documents
+<FilesMatch "\.(jpg|jpeg|png|gif|bmp|svg|webp|pdf|doc|docx|txt|csv|json)$">
+    # Headers pour les fichiers statiques
+    Header set Cache-Control "public, max-age=31536000"
+    Header unset ETag
+    FileETag None
+    
+    # CORS spécifique pour les médias
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+</FilesMatch>
+
+# Gestion des requêtes OPTIONS (preflight)
+RewriteEngine On
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ - [R=200,L]
+
+# Permettre l'accès direct aux sous-dossiers
+Options +Indexes +FollowSymLinks +MultiViews
+
+# Désactiver les restrictions de sécurité pour ce dossier
+<Directory "/Users/apple/Documents/dev/flutter/bcr/api/uploads">
+    AllowOverride All
+    Order allow,deny
+    Allow from all
+    Require all granted
+</Directory>

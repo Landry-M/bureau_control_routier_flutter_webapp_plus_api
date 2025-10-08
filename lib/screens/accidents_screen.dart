@@ -95,7 +95,7 @@ class _AccidentsScreenState extends State<AccidentsScreen> {
       print('DEBUG TEST - URL de base: $baseUrl');
       
       // Tester une image spécifique
-      final testImageUrl = '$baseUrl/uploads/accidents/68e3ba695220b_1759754857.jpeg';
+      final testImageUrl = '$baseUrl/api/uploads/accidents/68e3ba695220b_1759754857.jpeg';
       print('DEBUG TEST - Test de l\'URL: $testImageUrl');
       
       final uri = Uri.parse(testImageUrl);

@@ -7,6 +7,12 @@ import '../services/vehicule_service.dart';
 import '../services/global_search_service.dart';
 import '../widgets/vehicule_details_modal.dart';
 import '../widgets/particulier_details_modal.dart';
+import '../widgets/particulier_actions_modal.dart';
+import '../widgets/assign_contravention_particulier_modal.dart';
+import '../widgets/generer_permis_temporaire_modal.dart';
+import '../widgets/consigner_arrestation_modal.dart';
+import '../widgets/emettre_avis_recherche_modal.dart';
+import '../widgets/associer_vehicule_modal.dart';
 import '../widgets/entreprise_details_modal.dart';
 import '../widgets/assign_contravention_entreprise_modal.dart';
 
@@ -301,16 +307,43 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   void _showActionsMenu(String type, Map<String, dynamic> data) {
-    // Simple notification pour l'instant
-    toastification.show(
-      context: context,
-      type: ToastificationType.info,
-      style: ToastificationStyle.fillColored,
-      title: const Text('Information'),
-      description: Text('Actions pour $type à implémenter'),
-      alignment: Alignment.topRight,
-      autoCloseDuration: const Duration(seconds: 3),
-    );
+    switch (type) {
+      case 'particulier':
+        showDialog(
+          context: context,
+          builder: (context) => ParticulierActionsModal(
+            particulier: data,
+            onEmettrePermis: () => _showEmettrePermisModal(data),
+            onAssocierVehicule: () => _showAssocierVehiculeModal(data),
+            onCreerContravention: () => _showCreerContraventionModal(data),
+            onConsignerArrestation: () => _showConsignerArrestationModal(data),
+            onEmettreAvisRecherche: () => _showEmettreAvisRechercheModal(data),
+          ),
+        );
+        break;
+      case 'vehicule':
+        // Actions véhicule à implémenter
+        toastification.show(
+          context: context,
+          type: ToastificationType.info,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Information'),
+          description: const Text('Actions véhicule à implémenter'),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 3),
+        );
+        break;
+      default:
+        toastification.show(
+          context: context,
+          type: ToastificationType.info,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Information'),
+          description: Text('Actions pour $type à implémenter'),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 3),
+        );
+    }
   }
 
   void _showEntrepriseActions(Map<String, dynamic> entreprise) {
@@ -332,6 +365,113 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         );
       }
     });
+  }
+
+  // Méthodes pour les actions particulier
+  void _showEmettrePermisModal(Map<String, dynamic> particulier) {
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
+      context: context,
+      builder: (context) => GenererPermisTemporaireModal(
+        particulier: particulier,
+        onSuccess: () {
+          toastification.show(
+            context: context,
+            type: ToastificationType.success,
+            style: ToastificationStyle.fillColored,
+            title: const Text('Succès'),
+            description: const Text('Permis temporaire généré avec succès'),
+            alignment: Alignment.topRight,
+            autoCloseDuration: const Duration(seconds: 3),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showAssocierVehiculeModal(Map<String, dynamic> particulier) {
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
+      context: context,
+      builder: (context) => AssocierVehiculeModal(
+        particulier: particulier,
+        onSuccess: () {
+          toastification.show(
+            context: context,
+            type: ToastificationType.success,
+            style: ToastificationStyle.fillColored,
+            title: const Text('Succès'),
+            description: const Text('Véhicule associé avec succès'),
+            alignment: Alignment.topRight,
+            autoCloseDuration: const Duration(seconds: 3),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showCreerContraventionModal(Map<String, dynamic> particulier) {
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
+      context: context,
+      builder: (context) => AssignContraventionParticulierModal(
+        particulier: particulier,
+        onSuccess: () {
+          toastification.show(
+            context: context,
+            type: ToastificationType.success,
+            style: ToastificationStyle.fillColored,
+            title: const Text('Succès'),
+            description: const Text('Contravention créée avec succès'),
+            alignment: Alignment.topRight,
+            autoCloseDuration: const Duration(seconds: 3),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showConsignerArrestationModal(Map<String, dynamic> particulier) {
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
+      context: context,
+      builder: (context) => ConsignerArrestationModal(
+        particulier: particulier,
+        onSuccess: () {
+          toastification.show(
+            context: context,
+            type: ToastificationType.success,
+            style: ToastificationStyle.fillColored,
+            title: const Text('Succès'),
+            description: const Text('Arrestation consignée avec succès'),
+            alignment: Alignment.topRight,
+            autoCloseDuration: const Duration(seconds: 3),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showEmettreAvisRechercheModal(Map<String, dynamic> particulier) {
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
+      context: context,
+      builder: (context) => EmettreAvisRechercheModal(
+        cible: particulier,
+        cibleType: 'particuliers',
+        onSuccess: () {
+          toastification.show(
+            context: context,
+            type: ToastificationType.success,
+            style: ToastificationStyle.fillColored,
+            title: const Text('Succès'),
+            description: const Text('Avis de recherche émis avec succès'),
+            alignment: Alignment.topRight,
+            autoCloseDuration: const Duration(seconds: 3),
+          );
+        },
+      ),
+    );
   }
 
   void _showDetails(Map<String, dynamic> item) {

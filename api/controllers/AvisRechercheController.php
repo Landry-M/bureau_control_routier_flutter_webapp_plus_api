@@ -167,11 +167,9 @@ class AvisRechercheController extends BaseController {
      */
     public function getActive() {
         try {
-            $query = "SELECT a.*, u.nom as agent_nom 
-                     FROM {$this->table} a
-                     LEFT JOIN users u ON a.agent_id = u.id
-                     WHERE a.statut = 'actif'
-                     ORDER BY a.created_at DESC";
+            $query = "SELECT * FROM {$this->table}
+                     WHERE statut = 'actif'
+                     ORDER BY created_at DESC";
             
             $stmt = $this->db->prepare($query);
             $stmt->execute();
