@@ -2052,7 +2052,7 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
 
   void _viewPlaqueTemporairePdf(Map<String, dynamic> plaque) async {
     final plaqueId = plaque['id'];
-    final previewUrl = "http://localhost:8000/api/plaque_temporaire_display.php?id=$plaqueId";
+    final previewUrl = "${ApiConfig.imageBaseUrl}/api/plaque_temporaire_display.php?id=$plaqueId";
     
     try {
       final uri = Uri.parse(previewUrl);

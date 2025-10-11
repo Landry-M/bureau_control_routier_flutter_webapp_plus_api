@@ -1,0 +1,73 @@
+# Configuration PHP pour augmenter les limites d'upload
+# Taille maximale des fichiers uploadés : 100MB
+php_value upload_max_filesize 100M
+
+# Taille maximale des données POST : 100MB
+php_value post_max_size 100M
+
+# Temps d'exécution maximum : 600 secondes (10 minutes)
+php_value max_execution_time 600
+
+# Temps d'entrée maximum : 600 secondes
+php_value max_input_time 600
+
+# Mémoire maximale : 512MB
+php_value memory_limit 512M
+
+# Activer l'affichage des erreurs en développement
+php_flag display_errors Off
+php_flag log_errors On
+php_value error_log /tmp/php_errors.log
+
+# Nombre maximum de fichiers uploadés simultanément
+php_value max_file_uploads 50
+
+# Variables d'entrée maximum
+php_value max_input_vars 3000
+
+# Taille maximale du buffer d'output
+php_value output_buffering 4096
+
+# Autoriser les uploads de fichiers
+php_flag file_uploads On
+
+# Permettre l'accès aux fichiers statiques (images, CSS, JS)
+<FilesMatch "\.(png|jpg|jpeg|gif|css|js|svg|ico)$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
+
+# Configuration CORS pour accepter toutes les origines
+Header always set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Auth-Token, X-API-Key"
+Header always set Access-Control-Max-Age "86400"
+
+# Gestion des requêtes OPTIONS (preflight)
+RewriteEngine On
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ $1 [R=200,L]
+
+# Configuration pour servir les fichiers statiques
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^assets/(.*)$ assets/$1 [L]
+
+# Permettre l'accès direct aux fichiers uploads sans redirection
+RewriteCond %{REQUEST_URI} ^/uploads/
+RewriteRule ^(.*)$ - [L]
+
+# Configuration spécifique pour le dossier uploads
+<Directory "uploads">
+    Options +Indexes +FollowSymLinks
+    AllowOverride All
+    Order allow,deny
+    Allow from all
+    Require all granted
+    
+    # CORS spécifique pour uploads
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+    Header always set Access-Control-Allow-Headers "*"
+</Directory>
+

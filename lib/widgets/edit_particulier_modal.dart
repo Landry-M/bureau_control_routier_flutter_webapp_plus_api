@@ -141,7 +141,7 @@ class _EditParticulierModalState extends State<EditParticulierModal> {
               primary: Theme.of(context).colorScheme.primary,
               onPrimary: Colors.white,
               surface: Colors.white,
-              onSurface: Colors.black,
+              onSurface: Colors.white,
             ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(

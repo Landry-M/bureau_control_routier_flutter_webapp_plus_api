@@ -432,12 +432,12 @@ class _ConsignerArrestationModalState extends State<ConsignerArrestationModal> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: Theme.of(context).colorScheme.copyWith(
-              onSurface: Colors.black,
-              onPrimary: Colors.black,
+              onSurface: Colors.white,
+              onPrimary: Colors.white,
             ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
-                foregroundColor: Colors.black,
+                foregroundColor: Colors.white,
               ),
             ),
           ),
@@ -454,12 +454,12 @@ class _ConsignerArrestationModalState extends State<ConsignerArrestationModal> {
           return Theme(
             data: Theme.of(context).copyWith(
               colorScheme: Theme.of(context).colorScheme.copyWith(
-                onSurface: Colors.black,
-                onPrimary: Colors.black,
+                onSurface: Colors.white,
+                onPrimary: Colors.white,
               ),
               textButtonTheme: TextButtonThemeData(
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.black,
+                  foregroundColor: Colors.white,
                 ),
               ),
             ),

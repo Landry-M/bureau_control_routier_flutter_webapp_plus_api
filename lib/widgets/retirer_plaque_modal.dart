@@ -38,7 +38,7 @@ class _RetirerPlaqueModalState extends State<RetirerPlaqueModal> {
               primary: Theme.of(context).colorScheme.primary,
               onPrimary: Colors.white,
               surface: Colors.white,
-              onSurface: Colors.black,
+              onSurface: Colors.white,
             ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
@@ -63,7 +63,7 @@ class _RetirerPlaqueModalState extends State<RetirerPlaqueModal> {
                 primary: Theme.of(context).colorScheme.primary,
                 onPrimary: Colors.white,
                 surface: Colors.white,
-                onSurface: Colors.black,
+                onSurface: Colors.white,
               ),
               textButtonTheme: TextButtonThemeData(
                 style: TextButton.styleFrom(

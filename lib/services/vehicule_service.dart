@@ -3,13 +3,14 @@ import 'api_client.dart';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:http_parser/http_parser.dart';
+import '../config/api_config.dart';
 
 class VehiculeService {
   final ApiClient _apiClient;
 
   VehiculeService({ApiClient? apiClient})
       : _apiClient =
-            apiClient ?? ApiClient(baseUrl: 'http://localhost:8000/api/routes/index.php');
+            apiClient ?? ApiClient(baseUrl: ApiConfig.baseUrl);
   
 
   /// Crée un nouveau véhicule avec ou sans contravention

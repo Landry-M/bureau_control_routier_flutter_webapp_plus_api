@@ -2172,7 +2172,7 @@ class _ParticulierDetailsModalState extends State<ParticulierDetailsModal>
   void _viewPermisTemporairePdf(Map<String, dynamic> permis) async {
     final permisId = permis['id'];
     final previewUrl =
-        "http://localhost:8000/permis_temporaire_display.php?id=$permisId";
+        "${ApiConfig.imageBaseUrl}/permis_temporaire_display.php?id=$permisId";
 
     try {
       final uri = Uri.parse(previewUrl);

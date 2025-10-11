@@ -55,9 +55,9 @@ class _SosAvisVehiculeModalState extends State<SosAvisVehiculeModal> {
           children: [
             // En-tête
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.red.shade600,
+                color: theme.colorScheme.primaryContainer,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16),
                   topRight: Radius.circular(16),
@@ -65,7 +65,11 @@ class _SosAvisVehiculeModalState extends State<SosAvisVehiculeModal> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.directions_car, color: Colors.white, size: 28),
+                  Icon(
+                    Icons.directions_car,
+                    color: theme.colorScheme.primary,
+                    size: 28,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -74,22 +78,25 @@ class _SosAvisVehiculeModalState extends State<SosAvisVehiculeModal> {
                         Text(
                           'SOS - Avis de recherche Véhicule',
                           style: theme.textTheme.titleLarge?.copyWith(
-                            color: Colors.white,
                             fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onPrimaryContainer,
                           ),
                         ),
+                        const SizedBox(height: 4),
                         Text(
                           'Émission d\'un avis de recherche d\'urgence',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withOpacity(0.9),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onPrimaryContainer
+                                .withOpacity(0.7),
                           ),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
+                    icon: const Icon(Icons.close),
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: Colors.white),
+                    color: theme.colorScheme.onPrimaryContainer,
                   ),
                 ],
               ),
@@ -312,20 +319,22 @@ class _SosAvisVehiculeModalState extends State<SosAvisVehiculeModal> {
           child: const Text('Annuler'),
         ),
         const SizedBox(width: 12),
-        ElevatedButton(
+        ElevatedButton.icon(
           onPressed: _isLoading ? null : _submitForm,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red.shade600,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 12,
+            ),
           ),
-          child: _isLoading
+          icon: _isLoading
               ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Émettre l\'avis SOS'),
+              : const Icon(Icons.send),
+          label: const Text('Émettre l\'avis SOS'),
         ),
       ],
     );

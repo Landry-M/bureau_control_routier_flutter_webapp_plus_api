@@ -38,6 +38,7 @@ require_once __DIR__ . '/../controllers/HistoriqueRetraitPlaqueController.php';
 require_once __DIR__ . '/../controllers/ParticulierVehiculeController.php';
 require_once __DIR__ . '/../controllers/EntrepriseVehiculeController.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/env.php';
 
 function getDbConnection() {
     $database = new Database();
@@ -128,43 +129,79 @@ function path_match($pattern, $path, &$params = []) {
 switch (true) {
     // Auth
     case $method === 'POST' && $path === '/auth/login':
-        $raw = file_get_contents('php://input');
-        $data = json_decode($raw, true) ?? [];
-        $matricule = $data['matricule'] ?? '';
-        $password = $data['password'] ?? '';
-        
-        if (empty($matricule) || empty($password)) {
-            http_response_code(400);
+        try {
+            $raw = file_get_contents('php://input');
+            $data = json_decode($raw, true) ?? [];
+            $matricule = $data['matricule'] ?? '';
+            $password = $data['password'] ?? '';
+            
+            // Log de debug en production
+            if (Environment::isDebugMode()) {
+                error_log("Login attempt - Matricule: $matricule, Environment: " . Environment::getEnvironment());
+            }
+            
+            if (empty($matricule) || empty($password)) {
+                http_response_code(400);
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'Matricule et mot de passe requis',
+                    'errors' => [
+                        'credentials' => ['Veuillez renseigner le matricule et le mot de passe']
+                    ]
+                ]);
+                break;
+            }
+            
+            // Test de connexion à la base de données avant d'essayer l'authentification
+            try {
+                $testDb = getDbConnection();
+                if (!$testDb) {
+                    throw new Exception("Database connection failed");
+                }
+            } catch (Exception $dbError) {
+                error_log("Database connection error during login: " . $dbError->getMessage());
+                http_response_code(500);
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => 'Erreur de connexion à la base de données',
+                    'debug' => Environment::isDebugMode() ? $dbError->getMessage() : null
+                ]);
+                break;
+            }
+            
+            $authController = new AuthController();
+            $auth_result = $authController->login($matricule, $password);
+            
+            if ($auth_result['success']) {
+                json_ok_logged('POST /auth/login', [
+                    'token' => $auth_result['token'],
+                    'role' => $auth_result['role'],
+                    'username' => $auth_result['username'],
+                    'matricule' => $matricule,
+                    'first_connection' => $auth_result['first_connection'],
+                    'user' => $auth_result['user']
+                ]);
+            } else {
+                http_response_code(401);
+                echo json_encode([
+                    'status' => 'error',
+                    'message' => $auth_result['message'],
+                    'errors' => [
+                        'credentials' => [$auth_result['message']]
+                    ]
+                ]);
+            }
+        } catch (Exception $e) {
+            error_log("Login error: " . $e->getMessage() . " in " . $e->getFile() . " line " . $e->getLine());
+            http_response_code(500);
             echo json_encode([
                 'status' => 'error',
-                'message' => 'Matricule et mot de passe requis',
-                'errors' => [
-                    'credentials' => ['Veuillez renseigner le matricule et le mot de passe']
-                ]
-            ]);
-            break;
-        }
-        
-        $authController = new AuthController();
-        $auth_result = $authController->login($matricule, $password);
-        
-        if ($auth_result['success']) {
-            json_ok_logged('POST /auth/login', [
-                'token' => $auth_result['token'],
-                'role' => $auth_result['role'],
-                'username' => $auth_result['username'],
-                'matricule' => $matricule,
-                'first_connection' => $auth_result['first_connection'],
-                'user' => $auth_result['user']
-            ]);
-        } else {
-            http_response_code(401);
-            echo json_encode([
-                'status' => 'error',
-                'message' => $auth_result['message'],
-                'errors' => [
-                    'credentials' => [$auth_result['message']]
-                ]
+                'message' => 'Erreur interne du serveur',
+                'debug' => Environment::isDebugMode() ? [
+                    'error' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine()
+                ] : null
             ]);
         }
         break;

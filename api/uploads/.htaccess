@@ -48,10 +48,7 @@ RewriteRule ^(.*)$ - [R=200,L]
 # Permettre l'accès direct aux sous-dossiers
 Options +Indexes +FollowSymLinks +MultiViews
 
-# Désactiver les restrictions de sécurité pour ce dossier
-<Directory "/Users/apple/Documents/dev/flutter/bcr/api/uploads">
-    AllowOverride All
-    Order allow,deny
-    Allow from all
-    Require all granted
-</Directory>
+# Autoriser l'accès à ce dossier (compatible hébergement)
+Require all granted
+Order allow,deny
+Allow from all

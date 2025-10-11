@@ -17,10 +17,11 @@ import '../widgets/entreprise_details_modal.dart';
 import '../widgets/assign_contravention_entreprise_modal.dart';
 
 class SearchResultsScreen extends StatefulWidget {
-  const SearchResultsScreen({super.key, this.query = '', this.type = 'general'});
+  const SearchResultsScreen(
+      {super.key, this.query = '', this.type = 'general'});
 
   final String query; // from query params
-  final String type;  // 'general' | 'plate'
+  final String type; // 'general' | 'plate'
 
   @override
   State<SearchResultsScreen> createState() => _SearchResultsScreenState();
@@ -55,7 +56,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   Future<void> _load() async {
     if (widget.query.isEmpty) return;
     if (!mounted) return;
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       if (widget.type == 'plate') {
         final results = await _vehiculeService.searchByPlaque(widget.query);
@@ -91,7 +95,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     final subtitle = item['subtitle'] as String? ?? '';
     final createdAt = item['created_at'] as String?;
     final itemData = item['data'] as Map<String, dynamic>? ?? {};
-    
+
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
@@ -118,24 +122,28 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                        fontWeight: FontWeight.w600,
+                      ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .secondary
+                        .withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     typeLabel,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.secondary,
-                      fontWeight: FontWeight.w500,
-                    ),
+                          color: Theme.of(context).colorScheme.secondary,
+                          fontWeight: FontWeight.w500,
+                        ),
                   ),
                 ),
                 if (subtitle.isNotEmpty) ...[
@@ -143,8 +151,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                   Text(
                     subtitle,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -154,8 +162,11 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                   Text(
                     'Créé le: ${_formatDate(createdAt)}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
-                    ),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant
+                              .withOpacity(0.7),
+                        ),
                   ),
                 ],
               ],
@@ -168,7 +179,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             children: [
               // Bouton Détails
               IconButton(
-                onPressed: () => _showEntityDetails(type, itemData.isNotEmpty ? itemData : item),
+                onPressed: () => _showEntityDetails(
+                    type, itemData.isNotEmpty ? itemData : item),
                 icon: const Icon(Icons.visibility),
                 tooltip: 'Voir détails',
               ),
@@ -187,7 +199,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     final marque = (item['marque'] ?? '').toString();
     final modele = (item['modele'] ?? '').toString();
     final couleur = (item['couleur'] ?? '').toString();
-    
+
     return ListTile(
       leading: Container(
         width: 48,
@@ -267,7 +279,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     }
   }
 
-  void _showEntityDetails(String type, Map<String, dynamic> data) {
+  void _showEntityDetails(String type, Map<String, dynamic> data) async {
     final id = data['id']?.toString();
     if (id == null || id.isEmpty) {
       toastification.show(
@@ -284,10 +296,49 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
     switch (type) {
       case 'vehicule':
+        // Afficher un indicateur de chargement
         showDialog(
           context: context,
-          builder: (context) => VehiculeDetailsModal(vehicule: data),
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
         );
+
+        // Recharger les données complètes du véhicule avec les images
+        try {
+          final vehiculeId = int.parse(id);
+          final fullData = await _vehiculeService.getVehiculeById(vehiculeId);
+
+          if (mounted) {
+            // Fermer l'indicateur de chargement
+            Navigator.of(context).pop();
+          }
+
+          if (fullData != null && mounted) {
+            showDialog(
+              context: context,
+              builder: (context) => VehiculeDetailsModal(vehicule: fullData),
+            );
+          } else if (mounted) {
+            // Fallback sur les données partielles si le rechargement échoue
+            showDialog(
+              context: context,
+              builder: (context) => VehiculeDetailsModal(vehicule: data),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            // Fermer l'indicateur de chargement
+            Navigator.of(context).pop();
+
+            // En cas d'erreur, utiliser les données disponibles
+            showDialog(
+              context: context,
+              builder: (context) => VehiculeDetailsModal(vehicule: data),
+            );
+          }
+        }
         break;
       case 'particulier':
         showDialog(
@@ -542,19 +593,27 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.type == 'plate' 
-                                ? 'Recherche de plaque'
-                                : 'Recherche globale',
-                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                              widget.type == 'plate'
+                                  ? 'Recherche de plaque'
+                                  : 'Recherche globale',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                             ),
                             if (widget.query.isNotEmpty)
                               Text(
                                 'Résultats pour: "${widget.query}"',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
                               ),
                           ],
                         ),
@@ -562,90 +621,111 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Résultats
                   Expanded(
                     child: _loading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _all.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.search_off,
-                                  size: 64,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  _error != null 
-                                    ? 'Erreur: $_error'
-                                    : 'Aucun résultat trouvé',
-                                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : Column(
-                            children: [
-                              // Compteur de résultats
-                              Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                                child: Row(
-                                  children: [
-                                    Text(
-                                      '${_all.length} résultat${_all.length > 1 ? 's' : ''} trouvé${_all.length > 1 ? 's' : ''}',
-                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Liste des résultats
-                              Expanded(
-                                child: Card(
-                                  elevation: 2,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    side: BorderSide(
-                                      color: Colors.grey.withOpacity(0.3),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: ListView.separated(
-                                    padding: const EdgeInsets.all(8),
-                                    itemCount: _pageItems.length,
-                                    separatorBuilder: (context, index) => const Divider(height: 1),
-                                    itemBuilder: (context, index) {
-                                      return widget.type == 'general'
-                                          ? _buildGlobalSearchItem(_pageItems[index])
-                                          : _buildVehicleItem(_pageItems[index]);
-                                    },
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              if (_totalPages > 1)
-                                Row(
+                        ? const Center(child: CircularProgressIndicator())
+                        : _all.isEmpty
+                            ? Center(
+                                child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    IconButton(
-                                      onPressed: _page > 1 ? () => setState(() => _page--) : null,
-                                      icon: const Icon(Icons.chevron_left),
+                                    Icon(
+                                      Icons.search_off,
+                                      size: 64,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
                                     ),
-                                    Text('Page $_page sur $_totalPages'),
-                                    IconButton(
-                                      onPressed: _page < _totalPages ? () => setState(() => _page++) : null,
-                                      icon: const Icon(Icons.chevron_right),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      _error != null
+                                          ? 'Erreur: $_error'
+                                          : 'Aucun résultat trouvé',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyLarge
+                                          ?.copyWith(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
                                     ),
                                   ],
                                 ),
-                            ],
-                          ),
+                              )
+                            : Column(
+                                children: [
+                                  // Compteur de résultats
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    child: Row(
+                                      children: [
+                                        Text(
+                                          '${_all.length} résultat${_all.length > 1 ? 's' : ''} trouvé${_all.length > 1 ? 's' : ''}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Liste des résultats
+                                  Expanded(
+                                    child: Card(
+                                      elevation: 2,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        side: BorderSide(
+                                          color: Colors.grey.withOpacity(0.3),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: ListView.separated(
+                                        padding: const EdgeInsets.all(8),
+                                        itemCount: _pageItems.length,
+                                        separatorBuilder: (context, index) =>
+                                            const Divider(height: 1),
+                                        itemBuilder: (context, index) {
+                                          return widget.type == 'general'
+                                              ? _buildGlobalSearchItem(
+                                                  _pageItems[index])
+                                              : _buildVehicleItem(
+                                                  _pageItems[index]);
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  if (_totalPages > 1)
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        IconButton(
+                                          onPressed: _page > 1
+                                              ? () => setState(() => _page--)
+                                              : null,
+                                          icon: const Icon(Icons.chevron_left),
+                                        ),
+                                        Text('Page $_page sur $_totalPages'),
+                                        IconButton(
+                                          onPressed: _page < _totalPages
+                                              ? () => setState(() => _page++)
+                                              : null,
+                                          icon: const Icon(Icons.chevron_right),
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
                   ),
                 ],
               ),

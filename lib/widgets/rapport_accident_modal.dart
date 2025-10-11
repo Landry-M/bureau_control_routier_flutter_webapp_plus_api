@@ -57,7 +57,7 @@ class _RapportAccidentModalState extends State<RapportAccidentModal> {
               primary: Theme.of(context).colorScheme.primary,
               onPrimary: Colors.white,
               surface: Colors.white,
-              onSurface: Colors.black,
+              onSurface: Colors.white,
             ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
@@ -87,7 +87,7 @@ class _RapportAccidentModalState extends State<RapportAccidentModal> {
                 primary: Theme.of(context).colorScheme.primary,
                 onPrimary: Colors.white,
                 surface: Colors.white,
-                onSurface: Colors.black,
+                onSurface: Colors.white,
               ),
               textButtonTheme: TextButtonThemeData(
                 style: TextButton.styleFrom(

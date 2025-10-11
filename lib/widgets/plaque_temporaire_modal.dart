@@ -110,7 +110,7 @@ class _PlaqueTemporaireModalState extends State<PlaqueTemporaireModal> {
           // Ouvrir la page de prévisualisation
           final plaqueId = data['id'];
           final previewUrl =
-              "http://localhost:8000/api/plaque_temporaire_display.php?id=$plaqueId";
+              "${ApiConfig.imageBaseUrl}/api/plaque_temporaire_display.php?id=$plaqueId";
 
           toastification.show(
             context: context,

@@ -19,6 +19,7 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
   LatLng _selectedPosition = _lubumbashiCenter;
   String _selectedAddress = 'Lubumbashi, RDC';
   bool _isLoadingAddress = false;
+  bool _isMapReady = false;
   Set<Marker> _markers = {};
 
   @override
@@ -284,21 +285,47 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
 
             // Carte Google Maps
             Expanded(
-              child: GoogleMap(
-                initialCameraPosition: const CameraPosition(
-                  target: _lubumbashiCenter,
-                  zoom: 13,
-                ),
-                markers: _markers,
-                onMapCreated: (controller) {
-                  if (!_mapControllerCompleter.isCompleted) {
-                    _mapControllerCompleter.complete(controller);
-                  }
-                },
-                onTap: _onLocationSelected,
-                mapType: MapType.normal,
-                myLocationButtonEnabled: true,
-                zoomControlsEnabled: true,
+              child: Stack(
+                children: [
+                  GoogleMap(
+                    initialCameraPosition: const CameraPosition(
+                      target: _lubumbashiCenter,
+                      zoom: 13,
+                    ),
+                    markers: _markers,
+                    onMapCreated: (controller) {
+                      if (!_mapControllerCompleter.isCompleted) {
+                        _mapControllerCompleter.complete(controller);
+                      }
+                      setState(() {
+                        _isMapReady = true;
+                      });
+                    },
+                    onTap: _onLocationSelected,
+                    mapType: MapType.normal,
+                    myLocationButtonEnabled: true,
+                    zoomControlsEnabled: true,
+                  ),
+                  if (!_isMapReady)
+                    Container(
+                      color: theme.colorScheme.surface.withOpacity(0.8),
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                              color: theme.colorScheme.primary,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Chargement de la carte...',
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
 

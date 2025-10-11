@@ -161,7 +161,7 @@ class _CreateEntrepriseModalState extends State<CreateEntrepriseModal> {
                   primary: Colors.blue,
                   onPrimary: Colors.white,
                   surface: Colors.white,
-                  onSurface: Colors.black,
+                  onSurface: Colors.white,
                 ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
@@ -187,7 +187,7 @@ class _CreateEntrepriseModalState extends State<CreateEntrepriseModal> {
                     primary: Colors.blue,
                     onPrimary: Colors.white,
                     surface: Colors.white,
-                    onSurface: Colors.black,
+                    onSurface: Colors.white,
                   ),
               textButtonTheme: TextButtonThemeData(
                 style: TextButton.styleFrom(

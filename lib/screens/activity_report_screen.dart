@@ -198,7 +198,15 @@ class _ActivityReportScreenState extends State<ActivityReportScreen> {
             colorScheme: Theme.of(context).colorScheme.copyWith(
                   primary: Colors.blue,
                   onPrimary: Colors.white,
+                  surface: Colors.white,
+                  onSurface: Colors.white,
                 ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.blue,
+              ),
+            ),
           ),
           child: child!,
         );

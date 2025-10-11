@@ -32,8 +32,18 @@
   <title>bcr</title>
   <link rel="manifest" href="manifest.json">
   
-  <!-- Google Maps API -->
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAyRwr3rU43FT7RWNHUMyPi1rc16ArLMTE&libraries=places"></script>
+  <!-- Google Maps API - Async Loading -->
+  <script>
+    function initGoogleMaps() {
+      // Google Maps API is now loaded and ready
+      window.googleMapsLoaded = true;
+      // Dispatch event to notify Flutter that Google Maps is ready
+      window.dispatchEvent(new Event('google-maps-loaded'));
+    }
+  </script>
+  <script async defer 
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAyRwr3rU43FT7RWNHUMyPi1rc16ArLMTE&libraries=places&callback=initGoogleMaps">
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

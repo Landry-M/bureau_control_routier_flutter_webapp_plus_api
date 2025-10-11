@@ -185,15 +185,14 @@ class _CreateParticulierModalState extends State<CreateParticulierModal> {
           data: Theme.of(context).copyWith(
             colorScheme: Theme.of(context).colorScheme.copyWith(
                   primary: Colors.blue,
-                  onPrimary: Colors.black,
+                  onPrimary: Colors.white,
                   surface: Colors.white,
-                  onSurface: Colors.black,
+                  onSurface: Colors.white,
                 ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
-                foregroundColor: Colors.black,
-                backgroundColor: Colors.white,
-                side: const BorderSide(color: Colors.grey),
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.blue,
               ),
             ),
           ),
@@ -212,15 +211,14 @@ class _CreateParticulierModalState extends State<CreateParticulierModal> {
             data: Theme.of(context).copyWith(
               colorScheme: Theme.of(context).colorScheme.copyWith(
                     primary: Colors.blue,
-                    onPrimary: Colors.black,
+                    onPrimary: Colors.white,
                     surface: Colors.white,
-                    onSurface: Colors.black,
+                    onSurface: Colors.white,
                   ),
               textButtonTheme: TextButtonThemeData(
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.black,
-                  backgroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.grey),
+                  foregroundColor: Colors.white,
+                  backgroundColor: Colors.blue,
                 ),
               ),
             ),

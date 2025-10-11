@@ -1,0 +1,44 @@
+# Configuration .htaccess intermédiaire
+# Version progressive pour éviter les erreurs
+
+# Configuration PHP
+php_value upload_max_filesize 100M
+php_value post_max_size 100M
+php_value max_execution_time 600
+php_value max_input_time 600
+php_value memory_limit 512M
+php_value max_file_uploads 50
+php_value max_input_vars 3000
+php_flag file_uploads On
+
+# Logging d'erreurs (sans affichage)
+php_flag display_errors Off
+php_flag log_errors On
+
+# CORS Headers
+Header always set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Auth-Token, X-API-Key"
+Header always set Access-Control-Max-Age "86400"
+
+# Gestion des requêtes OPTIONS (preflight) et routing
+RewriteEngine On
+
+# Exclure explicitement le dossier uploads des redirections
+RewriteCond %{REQUEST_URI} ^/uploads/
+RewriteRule ^(.*)$ - [L]
+
+# Permettre l'accès direct aux fichiers et dossiers existants
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^(.*)$ - [L]
+
+# Gestion des requêtes OPTIONS
+RewriteCond %{REQUEST_METHOD} OPTIONS
+RewriteRule ^(.*)$ $1 [R=200,L]
+
+# Permettre l'accès aux fichiers statiques
+<FilesMatch "\.(png|jpg|jpeg|gif|css|js|svg|ico|pdf)$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
