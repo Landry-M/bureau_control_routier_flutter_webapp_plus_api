@@ -1391,7 +1391,7 @@ class _ParticulierDetailsModalState extends State<ParticulierDetailsModal>
       }
 
       // Utiliser display_contravention pour un affichage cohérent
-      final displayUrl = '${ApiConfig.baseUrl}/contravention/$contraventionId/display';
+      final displayUrl = ApiConfig.getContraventionDisplayUrl(contraventionId);
 
       // Ouvrir avec url_launcher
       final uri = Uri.parse(displayUrl);

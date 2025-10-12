@@ -29,8 +29,7 @@ class _ContraventionPreviewModalState extends State<ContraventionPreviewModal> {
   }
 
   Future<void> _openPreview() async {
-    final displayUrl =
-        '${ApiConfig.baseUrl}/contravention/${widget.contraventionId}/display';
+    final displayUrl = ApiConfig.getContraventionDisplayUrl(widget.contraventionId);
 
     try {
       final uri = Uri.parse(displayUrl);

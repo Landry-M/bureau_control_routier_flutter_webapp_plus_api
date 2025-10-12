@@ -51,9 +51,9 @@ class ApiConfig {
   
   /// URL de base pour les images et fichiers statiques (sans /api/routes/index.php)
   static String get imageBaseUrl {
-    // Détection automatique : si on est sur le domaine de production, utiliser l'URL relative
+    // Détection automatique : si on est sur le domaine de production, utiliser le domaine complet
     if (kIsWeb && Uri.base.host.contains('heaventech.net')) {
-      return ''; // URL RELATIVE - même domaine, pas de CORS !
+      return 'https://${Uri.base.host}'; // Utiliser le domaine actuel avec protocole HTTPS
     }
     
     if (kDebugMode) {
@@ -77,8 +77,60 @@ class ApiConfig {
     }
   }
 
+  /// URL complète avec domaine pour url_launcher (ouvrir dans le navigateur)
+  /// Utilisé pour les PDF, prévisualisations, etc.
+  static String get fullBaseUrl {
+    // Toujours retourner une URL complète avec protocole et domaine
+    if (kIsWeb && Uri.base.host.contains('heaventech.net')) {
+      return 'https://${Uri.base.host}/api/routes/index.php';
+    }
+    
+    if (kDebugMode) {
+      if (kIsWeb) {
+        return 'http://$_localhost/api/routes/index.php';
+      }
+      
+      if (Platform.isAndroid) {
+        return 'http://$_androidEmulator/api/routes/index.php';
+      }
+      
+      if (Platform.isIOS) {
+        return 'http://$_iosSimulator/api/routes/index.php';
+      }
+      
+      return 'http://$_localhost/api/routes/index.php';
+    } else {
+      return 'https://$_production/api/routes/index.php';
+    }
+  }
+
   /// Méthode pour forcer une URL spécifique (utile pour les tests)
   static String getCustomUrl(String host, int port) {
     return 'http://$host:$port/api/routes/index.php';
+  }
+
+  /// URL pour la prévisualisation de contravention (affichage direct en HTML)
+  static String getContraventionDisplayUrl(int contraventionId) {
+    if (kIsWeb && Uri.base.host.contains('heaventech.net')) {
+      return 'https://${Uri.base.host}/api/contravention_display.php?id=$contraventionId';
+    }
+    
+    if (kDebugMode) {
+      if (kIsWeb) {
+        return 'http://$_localhost/api/contravention_display.php?id=$contraventionId';
+      }
+      
+      if (Platform.isAndroid) {
+        return 'http://$_androidEmulator/api/contravention_display.php?id=$contraventionId';
+      }
+      
+      if (Platform.isIOS) {
+        return 'http://$_iosSimulator/api/contravention_display.php?id=$contraventionId';
+      }
+      
+      return 'http://$_localhost/api/contravention_display.php?id=$contraventionId';
+    } else {
+      return 'https://$_production/api/contravention_display.php?id=$contraventionId';
+    }
   }
 }

@@ -9,6 +9,9 @@ import '../providers/auth_provider.dart';
 import '../config/api_config.dart';
 import '../services/api_client.dart';
 import '../utils/date_time_picker_theme.dart';
+import '../services/notification_service.dart';
+import 'contravention_map_viewer.dart';
+import 'edit_contravention_modal.dart';
 class VehiculeDetailsModal extends StatefulWidget {
   final Map<String, dynamic> vehicule;
 
@@ -373,6 +376,98 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
         );
       }
     }
+  }
+
+  Future<void> _viewPdf(Map<String, dynamic> contravention) async {
+    try {
+      final contraventionId = contravention['id'];
+      if (contraventionId == null) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.warning,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Erreur'),
+          description: const Text('ID de contravention manquant'),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 3),
+        );
+        return;
+      }
+
+      // Utiliser display_contravention pour un affichage cohérent
+      final displayUrl = ApiConfig.getContraventionDisplayUrl(contraventionId);
+
+      // Ouvrir avec url_launcher
+      final uri = Uri.parse(displayUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Contravention ouverte'),
+          description: const Text('La contravention a été ouverte dans votre navigateur'),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 3),
+        );
+      } else {
+        throw Exception('Impossible d\'ouvrir l\'URL: $displayUrl');
+      }
+    } catch (e) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        style: ToastificationStyle.fillColored,
+        title: const Text('Erreur d\'affichage'),
+        description: Text('Erreur: ${e.toString()}'),
+        alignment: Alignment.topRight,
+        autoCloseDuration: const Duration(seconds: 4),
+      );
+    }
+  }
+
+  void _viewOnMap(Map<String, dynamic> contravention) {
+    final latitude = contravention['latitude'];
+    final longitude = contravention['longitude'];
+    
+    if (latitude != null && longitude != null) {
+      showDialog(
+        context: context,
+        builder: (context) => ContraventionMapViewer(
+          contravention: contravention,
+        ),
+      );
+    } else {
+      NotificationService.error(
+        context, 
+        'Aucune localisation disponible pour cette contravention'
+      );
+    }
+  }
+
+  void _editContravention(Map<String, dynamic> contravention) {
+    // Vérifier les permissions superadmin
+    final authProvider = context.read<AuthProvider>();
+    
+    if (!authProvider.isAuthenticated || authProvider.role != 'superadmin') {
+      NotificationService.error(
+        context,
+        'Accès refusé. Action réservée aux super-administrateurs.'
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => EditContraventionModal(
+        contravention: contravention,
+        onSuccess: () {
+          // Recharger les contraventions
+          _loadContraventions();
+        },
+      ),
+    );
   }
 
   Future<void> _showAssuranceModal({bool isRenewal = false}) async {
@@ -1404,6 +1499,24 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                     child: Text('Payé',
                         style: TextStyle(fontWeight: FontWeight.bold)),
                   )),
+                  DataColumn(
+                      label: Expanded(
+                    flex: 1,
+                    child: Text('PDF',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  )),
+                  DataColumn(
+                      label: Expanded(
+                    flex: 1,
+                    child: Text('Carte',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  )),
+                  DataColumn(
+                      label: Expanded(
+                    flex: 1,
+                    child: Text('Modifier',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  )),
                 ],
                 rows: _contraventions.map((contravention) {
                   final isPaid = contravention['payed'] == 'oui';
@@ -1481,6 +1594,45 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                           ),
+                        ),
+                      ),
+                      DataCell(
+                        IconButton(
+                          onPressed: () => _viewPdf(contravention),
+                          icon: const Icon(Icons.visibility, size: 18),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.grey[700],
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(32, 32),
+                            padding: const EdgeInsets.all(4),
+                          ),
+                          tooltip: 'Voir le PDF',
+                        ),
+                      ),
+                      DataCell(
+                        IconButton(
+                          onPressed: () => _viewOnMap(contravention),
+                          icon: const Icon(Icons.map, size: 18),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.blue[700],
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(32, 32),
+                            padding: const EdgeInsets.all(4),
+                          ),
+                          tooltip: 'Voir sur la carte',
+                        ),
+                      ),
+                      DataCell(
+                        IconButton(
+                          onPressed: () => _editContravention(contravention),
+                          icon: const Icon(Icons.edit, size: 18),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.orange[700],
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(32, 32),
+                            padding: const EdgeInsets.all(4),
+                          ),
+                          tooltip: 'Modifier (Superadmin)',
                         ),
                       ),
                     ],

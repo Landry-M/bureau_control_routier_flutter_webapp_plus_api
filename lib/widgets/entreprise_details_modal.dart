@@ -98,20 +98,21 @@ class _EntrepriseDetailsModalState extends State<EntrepriseDetailsModal>
       }
 
       // Utiliser display_contravention pour un affichage cohérent
-      final displayUrl = '${ApiConfig.baseUrl}/contravention/$contraventionId/display';
+      final displayUrl = ApiConfig.getContraventionDisplayUrl(contraventionId);
 
       // Ouvrir avec url_launcher
       final uri = Uri.parse(displayUrl);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
-        
+
         if (mounted) {
           toastification.show(
             context: context,
             type: ToastificationType.success,
             style: ToastificationStyle.fillColored,
             title: const Text('Contravention ouverte'),
-            description: const Text('La contravention a été ouverte dans votre navigateur'),
+            description: const Text(
+                'La contravention a été ouverte dans votre navigateur'),
             alignment: Alignment.topRight,
             autoCloseDuration: const Duration(seconds: 3),
           );
@@ -137,7 +138,7 @@ class _EntrepriseDetailsModalState extends State<EntrepriseDetailsModal>
   void _viewOnMap(Map<String, dynamic> contravention) {
     final latitude = contravention['latitude'];
     final longitude = contravention['longitude'];
-    
+
     if (latitude != null && longitude != null) {
       showDialog(
         context: context,
@@ -147,21 +148,17 @@ class _EntrepriseDetailsModalState extends State<EntrepriseDetailsModal>
       );
     } else {
       NotificationService.error(
-        context, 
-        'Aucune localisation disponible pour cette contravention'
-      );
+          context, 'Aucune localisation disponible pour cette contravention');
     }
   }
 
   void _editContravention(Map<String, dynamic> contravention) {
     // Vérifier les permissions superadmin
     final authProvider = context.read<AuthProvider>();
-    
+
     if (!authProvider.isAuthenticated || authProvider.role != 'superadmin') {
       NotificationService.error(
-        context,
-        'Accès refusé. Action réservée aux super-administrateurs.'
-      );
+          context, 'Accès refusé. Action réservée aux super-administrateurs.');
       return;
     }
 
@@ -295,13 +292,17 @@ class _EntrepriseDetailsModalState extends State<EntrepriseDetailsModal>
                     const SizedBox(height: 8),
                     _buildFormField('ID', widget.entreprise['id']),
                     const SizedBox(height: 12),
-                    _buildFormField('Désignation', widget.entreprise['designation'], isTitle: true),
+                    _buildFormField(
+                        'Désignation', widget.entreprise['designation'],
+                        isTitle: true),
                     const SizedBox(height: 12),
                     _buildFormField('RCCM', widget.entreprise['rccm']),
                     const SizedBox(height: 12),
-                    _buildFormField('Siège social', widget.entreprise['siege_social']),
+                    _buildFormField(
+                        'Siège social', widget.entreprise['siege_social']),
                     const SizedBox(height: 12),
-                    _buildFormField('Secteur d\'activité', widget.entreprise['secteur']),
+                    _buildFormField(
+                        'Secteur d\'activité', widget.entreprise['secteur']),
                   ],
                 ),
               ),
@@ -317,11 +318,14 @@ class _EntrepriseDetailsModalState extends State<EntrepriseDetailsModal>
                     const SizedBox(height: 12),
                     _buildFormField('Email', widget.entreprise['email']),
                     const SizedBox(height: 12),
-                    _buildFormField('Personne à contacter', widget.entreprise['personne_contact']),
+                    _buildFormField('Personne à contacter',
+                        widget.entreprise['personne_contact']),
                     const SizedBox(height: 12),
-                    _buildFormField('Fonction', widget.entreprise['fonction_contact']),
+                    _buildFormField(
+                        'Fonction', widget.entreprise['fonction_contact']),
                     const SizedBox(height: 12),
-                    _buildFormField('Téléphone contact', widget.entreprise['telephone_contact']),
+                    _buildFormField('Téléphone contact',
+                        widget.entreprise['telephone_contact']),
                   ],
                 ),
               ),
@@ -343,11 +347,13 @@ class _EntrepriseDetailsModalState extends State<EntrepriseDetailsModal>
           Row(
             children: [
               Expanded(
-                child: _buildFormField('Date de création', _formatDate(widget.entreprise['created_at'])),
+                child: _buildFormField('Date de création',
+                    _formatDate(widget.entreprise['created_at'])),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _buildFormField('Dernière modification', _formatDate(widget.entreprise['updated_at'])),
+                child: _buildFormField('Dernière modification',
+                    _formatDate(widget.entreprise['updated_at'])),
               ),
             ],
           ),
@@ -384,8 +390,8 @@ class _EntrepriseDetailsModalState extends State<EntrepriseDetailsModal>
           });
         } else {
           setState(() {
-            _errorVehicules = data['message'] ??
-                'Erreur lors du chargement des véhicules';
+            _errorVehicules =
+                data['message'] ?? 'Erreur lors du chargement des véhicules';
           });
         }
       } else {
@@ -419,9 +425,9 @@ class _EntrepriseDetailsModalState extends State<EntrepriseDetailsModal>
           Text(
             'Véhicules associés',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
           ),
         ],
       ),

@@ -1,28 +1,30 @@
-# Configuration .htaccess simplifiée pour diagnostic
-# Renommez ce fichier en .htaccess pour l'utiliser
-
 # Configuration PHP de base
 php_value upload_max_filesize 50M
 php_value post_max_size 50M
 php_value max_execution_time 300
 php_value memory_limit 256M
 
-# CORS de base
+# CORS Headers - MUST be set before any other processing
 Header always set Access-Control-Allow-Origin "*"
-Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
+Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, Accept, Origin, X-Auth-Token, X-API-Key"
+Header always set Access-Control-Max-Age "86400"
 
-# Gestion des requêtes OPTIONS et routing
+# Enable Rewrite Engine
 RewriteEngine On
 
-# Exclure le dossier uploads des redirections
-RewriteCond %{REQUEST_URI} !^/uploads/
-
-# Gestion des requêtes OPTIONS
+# Handle preflight OPTIONS requests immediately
 RewriteCond %{REQUEST_METHOD} OPTIONS
 RewriteRule ^(.*)$ $1 [R=200,L]
 
-# Permettre l'accès direct aux fichiers et dossiers existants
+# Exclude uploads directory from routing
+RewriteCond %{REQUEST_URI} ^/api/uploads/
+RewriteRule ^(.*)$ - [L]
+
+# Allow direct access to existing files and directories
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^(.*)$ - [L]
+
+# Route all other requests to index.php
+RewriteRule ^(.*)$ routes/index.php?route=/$1 [QSA,L]

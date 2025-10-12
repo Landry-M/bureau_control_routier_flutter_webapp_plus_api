@@ -290,6 +290,7 @@ class _EditContraventionModalState extends State<EditContraventionModal> {
                         controller: _lieuCtrl,
                         decoration: InputDecoration(
                           labelText: 'Lieu de l\'infraction *',
+                          hintText: 'Sélectionnez sur la carte ou saisissez manuellement',
                           border: const OutlineInputBorder(),
                           suffixIcon: _latitude != null && _longitude != null
                               ? Icon(Icons.location_on, color: Colors.green[600])
@@ -297,8 +298,9 @@ class _EditContraventionModalState extends State<EditContraventionModal> {
                         ),
                         validator: (v) =>
                             (v == null || v.trim().isEmpty) ? 'Requis' : null,
-                        readOnly: true,
-                        onTap: _submitting ? null : _selectLocation,
+                        enabled: !_submitting,
+                        maxLines: 2,
+                        minLines: 1,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -344,7 +346,7 @@ class _EditContraventionModalState extends State<EditContraventionModal> {
                       child: TextFormField(
                         controller: _montantCtrl,
                         decoration: const InputDecoration(
-                          labelText: 'Montant amende (FC)',
+                          labelText: 'Montant amende (FC) *',
                           border: OutlineInputBorder(),
                         ),
                         keyboardType: TextInputType.number,

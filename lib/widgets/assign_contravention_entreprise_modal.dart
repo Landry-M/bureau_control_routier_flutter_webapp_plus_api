@@ -349,10 +349,11 @@ class _AssignContraventionEntrepriseModalState
                       child: TextFormField(
                         controller: _cMontantCtrl,
                         decoration: const InputDecoration(
-                          labelText: 'Montant amende (FC)',
+                          labelText: 'Montant amende (FC) *',
                           border: OutlineInputBorder(),
                         ),
                         keyboardType: TextInputType.number,
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
                       ),
                     ),
                   ],
