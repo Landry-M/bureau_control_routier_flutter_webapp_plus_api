@@ -26,10 +26,10 @@ class Environment {
         switch ($env) {
             case 'production':
                 return [
-                    'host' => 'localhost', // Généralement localhost sur l'hébergement partagé
-                    'db_name' => 'ngla4195_control_routier', // À remplacer par le vrai nom de DB
-                    'username' => 'ngla4195_control_routier', // À remplacer par le vrai username
-                    'password' => 'piPfIC&wSOU&', // À remplacer par le vrai mot de passe
+                    'host' => 'localhost',
+                    'db_name' => 'ngla4195_control_routier',     // ✅ Configuré pour controls.heaventech.net
+                    'username' => 'ngla4195_control_routier',    // ✅ Utilisateur MySQL de production
+                    'password' => 'piPfIC&wSOU&',                // ✅ Mot de passe de production
                     'charset' => 'utf8mb4'
                 ];
                 

@@ -6,11 +6,25 @@ require_once __DIR__ . '/../config/database.php';
  */
 abstract class BaseController {
     protected $db;
+    protected $database; // Instance Database pour reconnexion
     protected $table;
     
     public function __construct() {
-        $database = new Database();
-        $this->db = $database->getConnection();
+        $this->database = new Database();
+        $this->db = $this->database->getConnection();
+    }
+    
+    /**
+     * Assure que la connexion MySQL est active
+     * Reconnecter si nécessaire (évite "MySQL server has gone away")
+     */
+    protected function ensureConnection() {
+        try {
+            $this->db = $this->database->ensureConnection();
+        } catch (Exception $e) {
+            error_log("Failed to ensure MySQL connection: " . $e->getMessage());
+            throw $e;
+        }
     }
     
     /**

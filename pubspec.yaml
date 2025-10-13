@@ -41,6 +41,8 @@ dependencies:
   toastification: ^2.0.0
   url_launcher: ^6.3.0
   image_picker: ^1.0.4
+  flutter_image_compress: ^2.3.0  # Compression d'images avant upload
+  path_provider: ^2.1.4           # Nécessaire pour flutter_image_compress
   google_maps_flutter: ^2.5.0
   google_maps_flutter_web: ^0.5.4+2
   intl: ^0.18.1

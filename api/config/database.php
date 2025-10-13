@@ -40,8 +40,27 @@ class Database {
             
             foreach ($dsn_options as $dsn) {
                 try {
-                    $this->conn = new PDO($dsn, $this->username, $this->password);
-                    $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                    // Options PDO pour éviter "MySQL server has gone away"
+                    $pdo_options = [
+                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                        PDO::ATTR_PERSISTENT => false, // Éviter les connexions persistantes qui peuvent expirer
+                        PDO::ATTR_EMULATE_PREPARES => false,
+                        PDO::ATTR_TIMEOUT => 60, // Timeout de connexion à 60 secondes
+                        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4"
+                    ];
+                    
+                    $this->conn = new PDO($dsn, $this->username, $this->password, $pdo_options);
+                    
+                    // Configuration supplémentaire après connexion (avec gestion d'erreurs)
+                    try {
+                        $this->conn->exec("SET SESSION wait_timeout=300");
+                        $this->conn->exec("SET SESSION interactive_timeout=300");
+                        // Ne pas tenter de modifier max_allowed_packet en SESSION (nécessite GLOBAL)
+                    } catch (PDOException $e) {
+                        // Ignorer les erreurs de configuration non-critiques
+                        error_log("Avertissement configuration MySQL: " . $e->getMessage());
+                    }
+                    
                     break; // Connection successful
                 } catch(PDOException $e) {
                     // Try next DSN option
@@ -70,6 +89,41 @@ class Database {
             }
         }
         return $this->conn;
+    }
+    
+    /**
+     * Vérifie si la connexion est toujours active, sinon reconnecte
+     */
+    public function ensureConnection() {
+        try {
+            // Tester la connexion avec une requête simple
+            if ($this->conn) {
+                $this->conn->query('SELECT 1');
+            } else {
+                $this->getConnection();
+            }
+        } catch (PDOException $e) {
+            // La connexion a été perdue, reconnecter
+            error_log("MySQL connection lost, reconnecting: " . $e->getMessage());
+            $this->conn = null;
+            $this->getConnection();
+        }
+        return $this->conn;
+    }
+    
+    /**
+     * Ping la connexion MySQL pour éviter les timeouts
+     */
+    public function ping() {
+        try {
+            if ($this->conn) {
+                $this->conn->query('SELECT 1');
+                return true;
+            }
+        } catch (PDOException $e) {
+            return false;
+        }
+        return false;
     }
 }
 ?>

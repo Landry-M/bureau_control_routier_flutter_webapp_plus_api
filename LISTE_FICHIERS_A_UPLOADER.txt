@@ -1,0 +1,157 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║        FICHIERS À UPLOADER SUR LE SERVEUR DE PRODUCTION                   ║
+║                    (Via FTP, SFTP ou FileZilla)                            ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+⚠️  FICHIERS MANQUANTS SUR LE SERVEUR - À UPLOADER EN PRIORITÉ ⚠️
+
+═══════════════════════════════════════════════════════════════════════════
+
+📁 BACKEND (PHP) - 3 FICHIERS
+───────────────────────────────────────────────────────────────────────────
+
+1. ✅ check_session_schedule.php
+   📂 LOCAL   : api/check_session_schedule.php
+   📂 SERVEUR : /public_html/api/check_session_schedule.php
+   📝 DESCRIPTION : Endpoint pour vérifier les horaires en session
+   ⚠️  CRITIQUE : Sans ce fichier, l'app plante !
+
+2. ✅ timezone.php
+   📂 LOCAL   : api/config/timezone.php
+   📂 SERVEUR : /public_html/api/config/timezone.php
+   📝 DESCRIPTION : Configuration fuseau horaire UTC+2
+   ⚠️  CRITIQUE : Sans ce fichier, les horaires sont décalés !
+
+3. ✅ database.php (REMPLACER L'EXISTANT)
+   📂 LOCAL   : api/config/database.php
+   📂 SERVEUR : /public_html/api/config/database.php
+   📝 DESCRIPTION : Configuration DB avec timezone
+   ⚠️  IMPORTANT : Remplacer le fichier existant
+
+═══════════════════════════════════════════════════════════════════════════
+
+📱 FRONTEND (Flutter) - REBUILD NÉCESSAIRE
+───────────────────────────────────────────────────────────────────────────
+
+Après avoir uploadé les fichiers PHP ci-dessus :
+
+1. Rebuild l'application Flutter :
+   
+   flutter build web --release
+
+2. Uploader le contenu de build/web/ sur le serveur
+
+═══════════════════════════════════════════════════════════════════════════
+
+🧪 FICHIERS DE TEST (OPTIONNELS - À SUPPRIMER APRÈS USAGE)
+───────────────────────────────────────────────────────────────────────────
+
+4. test_user_testes.php (OPTIONNEL)
+   📂 LOCAL   : api/test_user_testes.php
+   📂 SERVEUR : /public_html/api/test_user_testes.php
+   📝 DESCRIPTION : Test des horaires d'un utilisateur
+   🗑️  À SUPPRIMER après les tests
+
+5. test_login_testes.php (OPTIONNEL)
+   📂 LOCAL   : api/test_login_testes.php
+   📂 SERVEUR : /public_html/api/test_login_testes.php
+   📝 DESCRIPTION : Test de connexion complète
+   🗑️  À SUPPRIMER après les tests
+
+═══════════════════════════════════════════════════════════════════════════
+
+📋 CHECKLIST DE DÉPLOIEMENT
+───────────────────────────────────────────────────────────────────────────
+
+Cochez après chaque étape :
+
+[ ] 1. Ouvrir FileZilla (ou client FTP/SFTP)
+[ ] 2. Se connecter au serveur
+[ ] 3. Naviguer vers /public_html/api/
+[ ] 4. Uploader check_session_schedule.php
+[ ] 5. Naviguer vers /public_html/api/config/
+[ ] 6. Uploader timezone.php
+[ ] 7. Uploader database.php (remplacer l'existant)
+[ ] 8. Vérifier les permissions (644 recommandé)
+[ ] 9. Tester l'endpoint via navigateur
+[ ] 10. Rebuild et déployer l'application Flutter
+
+═══════════════════════════════════════════════════════════════════════════
+
+🧪 TEST APRÈS DÉPLOIEMENT
+───────────────────────────────────────────────────────────────────────────
+
+Test 1 - Vérifier que le fichier est accessible :
+   🌐 https://votre-domaine.com/api/check_session_schedule.php?user_id=1
+
+   Réponse attendue :
+   {
+     "success": true,
+     "authorized": true,
+     "message": "Accès autorisé"
+   }
+
+Test 2 - Vérifier le fuseau horaire :
+   🌐 Créer temporairement : /api/test_timezone.php
+   
+   Contenu :
+   <?php
+   require_once __DIR__ . '/config/timezone.php';
+   echo date('Y-m-d H:i:s');
+   ?>
+
+   Accéder à : https://votre-domaine.com/api/test_timezone.php
+   L'heure affichée doit correspondre à votre heure locale (UTC+2)
+
+Test 3 - Test de connexion utilisateur :
+   🔐 Se connecter avec l'utilisateur "testes"
+   
+   Comportement attendu :
+   ✅ Autorisé   : Lundi 08:00-13:05, Mardi 08:00-17:00
+   ❌ Refusé     : Autres horaires
+   
+   Message attendu si refusé :
+   "Connexion refusée: en dehors des heures de travail"
+
+═══════════════════════════════════════════════════════════════════════════
+
+⚠️  DÉPANNAGE
+───────────────────────────────────────────────────────────────────────────
+
+Erreur : "check_session_schedule.php not found" (404)
+   → Vérifier que le fichier est bien uploadé dans /api/
+   → Vérifier les permissions (chmod 644)
+   → Vérifier le chemin exact sur votre hébergeur
+
+Erreur : "timezone.php not found"
+   → Vérifier que le fichier est bien uploadé dans /api/config/
+   → Si manquant, créer manuellement avec :
+     <?php date_default_timezone_set('Africa/Johannesburg'); ?>
+
+Décalage horaire persistant
+   → Vérifier que timezone.php est chargé par database.php
+   → Tester avec test_timezone.php
+   → Adapter le fuseau selon votre pays
+
+CORS errors
+   → Les headers CORS sont déjà dans check_session_schedule.php
+   → Vérifier le fichier .htaccess de /api/
+
+═══════════════════════════════════════════════════════════════════════════
+
+📞 SUPPORT
+───────────────────────────────────────────────────────────────────────────
+
+Documentation complète : DEPLOIEMENT_HORAIRES_SESSION.md
+Script automatique     : deploy-horaires-session.sh
+
+═══════════════════════════════════════════════════════════════════════════
+
+PRIORITÉ ABSOLUE : 
+   1. check_session_schedule.php
+   2. timezone.php
+   3. database.php
+
+Sans ces 3 fichiers, l'application ne fonctionnera pas correctement !
+
+═══════════════════════════════════════════════════════════════════════════

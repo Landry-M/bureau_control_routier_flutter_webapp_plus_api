@@ -147,6 +147,9 @@ class VehiculeController extends BaseController {
             // Optionally create contravention
             $withCv = $f('with_contravention', '0');
             if ($withCv === '1') {
+                // Assurer que la connexion est toujours active avant l'opération suivante
+                $this->ensureConnection();
+                
                 require_once __DIR__ . '/ContraventionController.php';
                 $contraventionController = new ContraventionController();
                 
