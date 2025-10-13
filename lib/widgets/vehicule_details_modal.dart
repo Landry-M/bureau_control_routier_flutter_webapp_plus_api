@@ -91,8 +91,12 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
         });
       }
     } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
       setState(() {
-        _errorContraventions = 'Erreur: ${e.toString()}';
+        _errorContraventions = errorMessage;
       });
     } finally {
       setState(() {
@@ -124,8 +128,12 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
         });
       }
     } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
       setState(() {
-        _errorAssurances = 'Erreur: ${e.toString()}';
+        _errorAssurances = errorMessage;
       });
     } finally {
       setState(() {
@@ -157,8 +165,12 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
         });
       }
     } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
       setState(() {
-        _errorPlaquesTemporaires = 'Erreur: ${e.toString()}';
+        _errorPlaquesTemporaires = errorMessage;
       });
     } finally {
       setState(() {
@@ -232,8 +244,12 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
         });
       }
     } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
       setState(() {
-        _errorHistoriqueRetraits = 'Erreur: ${e.toString()}';
+        _errorHistoriqueRetraits = errorMessage;
       });
     } finally {
       setState(() {
@@ -274,8 +290,12 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
         });
       }
     } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
       setState(() {
-        _errorProprietaire = 'Erreur: ${e.toString()}';
+        _errorProprietaire = errorMessage;
       });
     } finally {
       setState(() {

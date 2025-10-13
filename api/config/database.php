@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/env.php';
+require_once __DIR__ . '/timezone.php';
 
 // Database configuration
 class Database {

@@ -80,6 +80,14 @@ GoRouter createRouter(AuthProvider auth) {
       GoRoute(
         path: '/activity-report',
         name: 'activity_report',
+        redirect: (context, state) {
+          // Seuls les superadmins peuvent accéder aux rapports d'activité
+          final role = auth.role;
+          if (role != 'superadmin') {
+            return '/dashboard'; // Rediriger vers le dashboard si pas superadmin
+          }
+          return null;
+        },
         builder: (BuildContext context, GoRouterState state) =>
             const ActivityReportScreen(),
       ),

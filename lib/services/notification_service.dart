@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:toastification/toastification.dart';
 
 class NotificationService {
-  static void success(BuildContext context, String message, {String? title, Duration? duration}) {
+  static void success(BuildContext context, String message,
+      {String? title, Duration? duration}) {
     _show(
       context,
       message: message,
@@ -12,7 +13,8 @@ class NotificationService {
     );
   }
 
-  static void error(BuildContext context, String message, {String? title, Duration? duration}) {
+  static void error(BuildContext context, String message,
+      {String? title, Duration? duration}) {
     _show(
       context,
       message: message,
@@ -22,7 +24,8 @@ class NotificationService {
     );
   }
 
-  static void info(BuildContext context, String message, {String? title, Duration? duration}) {
+  static void info(BuildContext context, String message,
+      {String? title, Duration? duration}) {
     _show(
       context,
       message: message,
@@ -32,7 +35,8 @@ class NotificationService {
     );
   }
 
-  static void warning(BuildContext context, String message, {String? title, Duration? duration}) {
+  static void warning(BuildContext context, String message,
+      {String? title, Duration? duration}) {
     _show(
       context,
       message: message,
@@ -54,7 +58,10 @@ class NotificationService {
       type: type,
       style: ToastificationStyle.fillColored,
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      description: Text(message),
+      description: SizedBox(
+        width: 600,
+        child: Text(message),
+      ),
       autoCloseDuration: duration ?? const Duration(seconds: 4),
       animationDuration: const Duration(milliseconds: 250),
       alignment: Alignment.topRight,

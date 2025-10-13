@@ -80,8 +80,12 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       }
     } catch (e) {
       if (mounted) {
+        String errorMessage = e.toString();
+        if (errorMessage.startsWith('Exception: ')) {
+          errorMessage = errorMessage.substring(11);
+        }
         setState(() {
-          _error = e.toString();
+          _error = errorMessage;
           _loading = false;
         });
       }

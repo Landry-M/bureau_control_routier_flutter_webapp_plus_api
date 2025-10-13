@@ -108,5 +108,11 @@ ThemeData buildAppTheme() {
       shape: CircleBorder(),
     ),
     dividerTheme: DividerThemeData(color: colorScheme.outline.withOpacity(0.4)),
+    // Indicateurs de chargement en blanc pour le mode sombre
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
+      color: Colors.white,
+      linearTrackColor: Color(0xFF3D5166),
+      circularTrackColor: Color(0xFF3D5166),
+    ),
   );
 }

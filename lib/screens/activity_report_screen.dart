@@ -121,8 +121,12 @@ class _ActivityReportScreenState extends State<ActivityReportScreen> {
         });
       }
     } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
       setState(() {
-        _error = 'Erreur de connexion: ${e.toString()}';
+        _error = errorMessage;
         _loading = false;
       });
     }

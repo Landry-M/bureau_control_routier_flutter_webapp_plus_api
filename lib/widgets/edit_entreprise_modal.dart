@@ -101,7 +101,11 @@ class _EditEntrepriseModalState extends State<EditEntrepriseModal> {
         throw Exception('Erreur lors de la modification (${response.statusCode})');
       }
     } catch (e) {
-      NotificationService.error(context, 'Erreur: ${e.toString()}');
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      NotificationService.error(context, errorMessage);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

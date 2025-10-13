@@ -20,71 +20,73 @@ class AccidentService {
 
     final response = await _apiClient.get(path);
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      if (data['success'] == true) {
-        return List<Map<String, dynamic>>.from(data['data'] ?? []);
-      } else {
-        throw Exception(
-            'API Error: ${data['error'] ?? data['message'] ?? 'Unknown error'}');
-      }
-    } else {
-      throw Exception('HTTP Error ${response.statusCode}: ${response.body}');
+    final data = jsonDecode(response.body);
+    
+    if (response.statusCode == 200 && data['success'] == true) {
+      return List<Map<String, dynamic>>.from(data['data'] ?? []);
     }
+    
+    // Extraire uniquement le message d'erreur du JSON
+    final errorMessage = data['message'] ?? data['error'] ?? 'Erreur lors de la récupération des accidents';
+    throw Exception(errorMessage);
   }
 
   /// Récupérer un accident par ID avec ses témoins
   Future<Map<String, dynamic>> getAccidentById(int id) async {
     final response = await _apiClient.get('/accidents/$id');
+    final data = jsonDecode(response.body);
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
       return data['data'] ?? {};
-    } else {
-      throw Exception(
-          'Erreur lors du chargement de l\'accident: ${response.statusCode}');
     }
+    
+    // Extraire uniquement le message d'erreur du JSON
+    final errorMessage = data['message'] ?? data['error'] ?? 'Erreur lors du chargement de l\'accident';
+    throw Exception(errorMessage);
   }
 
   /// Récupérer les témoins d'un accident
   Future<List<Map<String, dynamic>>> getAccidentWitnesses(
       int accidentId) async {
     final response = await _apiClient.get('/accidents/$accidentId/temoins');
+    final data = jsonDecode(response.body);
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
       return List<Map<String, dynamic>>.from(data['data'] ?? []);
-    } else {
-      throw Exception(
-          'Erreur lors du chargement des témoins: ${response.statusCode}');
     }
+    
+    // Extraire uniquement le message d'erreur du JSON
+    final errorMessage = data['message'] ?? data['error'] ?? 'Erreur lors du chargement des témoins';
+    throw Exception(errorMessage);
   }
 
   /// Créer un nouvel accident
   Future<Map<String, dynamic>> createAccident(
       Map<String, dynamic> accidentData) async {
     final response = await _apiClient.postJson('/accidents', accidentData);
+    final data = jsonDecode(response.body);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      final data = jsonDecode(response.body);
       return data;
-    } else {
-      throw Exception(
-          'Erreur lors de la création de l\'accident: ${response.statusCode}');
     }
+    
+    // Extraire uniquement le message d'erreur du JSON
+    final errorMessage = data['message'] ?? data['error'] ?? 'Erreur lors de la création de l\'accident';
+    throw Exception(errorMessage);
   }
 
   /// Récupérer les parties impliquées d'un accident
   Future<List<Map<String, dynamic>>> getAccidentParties(int accidentId) async {
     final response = await _apiClient.get('/accidents/$accidentId/parties');
+    final data = jsonDecode(response.body);
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
       return List<Map<String, dynamic>>.from(data['data'] ?? []);
-    } else {
-      throw Exception(
-          'Erreur lors du chargement des parties impliquées: ${response.statusCode}');
     }
+    
+    // Extraire uniquement le message d'erreur du JSON
+    final errorMessage = data['message'] ?? data['error'] ?? 'Erreur lors du chargement des parties impliquées';
+    throw Exception(errorMessage);
   }
 
   /// Mettre à jour un accident

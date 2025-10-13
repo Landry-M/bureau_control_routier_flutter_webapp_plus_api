@@ -202,7 +202,11 @@ class _EditParticulierModalState extends State<EditParticulierModal> {
         });
       }
     } catch (e) {
-      _showError('Erreur lors de la sélection de l\'image: ${e.toString()}');
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      _showError('Erreur lors de la sélection de l\'image: $errorMessage');
     }
   }
 
@@ -287,7 +291,11 @@ class _EditParticulierModalState extends State<EditParticulierModal> {
         _showError(data['message'] ?? 'Erreur lors de la modification du particulier');
       }
     } catch (e) {
-      _showError('Erreur de connexion: ${e.toString()}');
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      _showError(errorMessage);
     } finally {
       if (mounted) {
         setState(() {

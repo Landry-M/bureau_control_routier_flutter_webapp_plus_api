@@ -17,6 +17,8 @@ import 'providers/search_provider.dart';
 import 'providers/conducteur_provider.dart';
 import 'providers/global_search_provider.dart';
 import 'providers/alert_provider.dart';
+import 'widgets/schedule_guard.dart';
+import 'widgets/activity_detector.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,10 +51,14 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => GlobalSearchProvider()),
         ChangeNotifierProvider(create: (_) => AlertProvider()),
       ],
-      child: MaterialApp.router(
-        title: 'Bureau de Contrôle Routier',
-        theme: buildAppTheme(),
-        routerConfig: createRouter(providedAuth),
+      child: ScheduleGuard(
+        child: ActivityDetector(
+          child: MaterialApp.router(
+            title: 'Bureau de Contrôle Routier',
+            theme: buildAppTheme(),
+            routerConfig: createRouter(providedAuth),
+          ),
+        ),
       ),
     );
   }

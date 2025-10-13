@@ -9,14 +9,22 @@ class AlertService {
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/alerts?username=$username'),
       );
+      
+      final data = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        throw Exception('Erreur lors de la récupération des alertes: ${response.statusCode}');
+        return data;
       }
+      
+      // Extraire uniquement le message d'erreur du JSON
+      final errorMessage = data['message'] ?? data['error'] ?? 'Erreur lors de la récupération des alertes';
+      throw Exception(errorMessage);
     } catch (e) {
-      throw Exception('Erreur de connexion: $e');
+      // Si c'est déjà une exception, la relancer telle quelle
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Erreur de connexion');
     }
   }
 }

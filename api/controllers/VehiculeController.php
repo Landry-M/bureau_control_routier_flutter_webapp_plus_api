@@ -88,7 +88,7 @@ class VehiculeController extends BaseController {
             if ($this->plaqueExists($plaque)) {
                 return [
                     'success' => false,
-                    'message' => 'Cette plaque d\'immatriculation existe déjà dans la base de données. Veuillez vérifier le numéro de plaque.'
+                    'message' => 'Plaque déjà utilisée'
                 ];
             }
 
@@ -282,7 +282,7 @@ class VehiculeController extends BaseController {
                 if ($result['count'] > 0) {
                     return [
                         'success' => false,
-                        'message' => 'Cette plaque d\'immatriculation existe déjà pour un autre véhicule'
+                        'message' => 'Plaque déjà utilisée'
                     ];
                 }
             }
@@ -634,6 +634,22 @@ class VehiculeController extends BaseController {
                 return isset($data[$key]) && $data[$key] !== '' ? $data[$key] : null;
             };
 
+            // Vérifier l'unicité de la plaque
+            $plaque = $data['plaque'];
+            if (!$plaque || trim($plaque) === '') {
+                return [
+                    'success' => false,
+                    'message' => 'Le numéro de plaque est requis'
+                ];
+            }
+
+            if ($this->plaqueExists($plaque)) {
+                return [
+                    'success' => false,
+                    'message' => 'Plaque déjà utilisée'
+                ];
+            }
+
             $this->db->beginTransaction();
 
             // Insert into vehicule_plaque avec champs minimum
@@ -645,7 +661,6 @@ class VehiculeController extends BaseController {
                 '1', NOW()
             )");
 
-            $plaque = $data['plaque'];
             $marque = $f('marque');
             $modele = $f('modele');
             $couleur = $f('couleur');

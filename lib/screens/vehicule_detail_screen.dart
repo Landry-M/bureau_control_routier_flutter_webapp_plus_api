@@ -51,7 +51,11 @@ class _VehiculeDetailScreenState extends State<VehiculeDetailScreen> {
       data ??= await _service.searchPlaque(widget.id);
       setState(() { _veh = data; _loading = false; });
     } catch (e) {
-      setState(() { _error = e.toString(); _loading = false; });
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      setState(() { _error = errorMessage; _loading = false; });
     }
   }
 

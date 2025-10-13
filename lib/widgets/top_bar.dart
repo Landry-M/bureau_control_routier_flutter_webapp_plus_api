@@ -62,7 +62,11 @@ class _TopBarState extends State<TopBar> {
       }
     } catch (e) {
       if (!mounted) return;
-      NotificationService.error(context, 'Erreur de recherche: $e');
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      NotificationService.error(context, errorMessage);
     }
   }
 

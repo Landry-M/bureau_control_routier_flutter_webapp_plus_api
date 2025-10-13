@@ -42,14 +42,20 @@ class ContraventionService {
       fields: fields,
       files: files,
     );
+    
+    Map<String, dynamic> responseData = {};
+    try {
+      final decoded = jsonDecode(resp.body);
+      if (decoded is Map<String, dynamic>) responseData = decoded;
+    } catch (_) {}
+    
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      try {
-        final decoded = jsonDecode(resp.body);
-        if (decoded is Map<String, dynamic>) return decoded;
-      } catch (_) {}
-      return {'state': true};
+      return responseData.isNotEmpty ? responseData : {'state': true};
     }
-    throw Exception('Erreur HTTP ${resp.statusCode}: ${resp.body}');
+    
+    // Extraire uniquement le message d'erreur du JSON
+    final errorMessage = responseData['message'] ?? 'Erreur lors de la création de la contravention';
+    throw Exception(errorMessage);
   }
 }
 

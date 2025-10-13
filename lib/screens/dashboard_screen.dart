@@ -139,8 +139,12 @@ class _QuickActionsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<AuthProvider>().role;
+    final isSuperAdmin = role == 'superadmin';
+    
     final actions = <(IconData, String)>[
-      (Icons.assignment, "Rapport des activités"),
+      // Rapport des activités uniquement pour les superadmins
+      if (isSuperAdmin) (Icons.assignment, "Rapport des activités"),
       (Icons.add, "Créer un dossier"),
       (Icons.folder_open, "Consulter tous les dossiers"),
       (Icons.car_crash, "Rapports d'accidents"),

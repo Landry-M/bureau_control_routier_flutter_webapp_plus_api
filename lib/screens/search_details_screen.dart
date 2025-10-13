@@ -57,8 +57,12 @@ class _SearchDetailsScreenState extends State<SearchDetailsScreen> {
         });
       }
     } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
       setState(() {
-        _error = 'Erreur de connexion: $e';
+        _error = errorMessage;
         _isLoading = false;
       });
     }

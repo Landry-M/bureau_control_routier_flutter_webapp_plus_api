@@ -129,13 +129,18 @@ class _VehiculeImpliqueModalState extends State<VehiculeImpliqueModal> {
       );
     } catch (e) {
       setState(() => _isCreating = false);
+      // Extraire le message d'erreur propre
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring('Exception: '.length);
+      }
       toastification.show(
         context: context,
         type: ToastificationType.error,
         style: ToastificationStyle.fillColored,
         title: const Text('Erreur de création'),
-        description: Text(e.toString()),
-        autoCloseDuration: const Duration(seconds: 4),
+        description: Text(errorMessage),
+        autoCloseDuration: const Duration(seconds: 5),
       );
     }
   }

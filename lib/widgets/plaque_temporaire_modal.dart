@@ -132,7 +132,11 @@ class _PlaqueTemporaireModalState extends State<PlaqueTemporaireModal> {
             'Erreur lors de la génération de la plaque temporaire');
       }
     } catch (e) {
-      _showError('Erreur de connexion: ${e.toString()}');
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      _showError(errorMessage);
     } finally {
       if (mounted) {
         setState(() {

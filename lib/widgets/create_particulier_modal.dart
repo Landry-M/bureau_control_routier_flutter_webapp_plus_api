@@ -418,7 +418,11 @@ class _CreateParticulierModalState extends State<CreateParticulierModal> {
       NotificationService.success(context, 'Particulier enregistré');
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
-      NotificationService.error(context, e.toString());
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      NotificationService.error(context, errorMessage);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

@@ -71,8 +71,12 @@ class _EntrepriseDetailsModalState extends State<EntrepriseDetailsModal>
         });
       }
     } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
       setState(() {
-        _errorContraventions = 'Erreur: ${e.toString()}';
+        _errorContraventions = errorMessage;
       });
     } finally {
       setState(() {

@@ -70,7 +70,11 @@ class _UsersScreenState extends State<UsersScreen> {
       });
       NotificationService.success(context, 'Agent supprimé');
     } catch (e) {
-      NotificationService.error(context, e.toString());
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      NotificationService.error(context, errorMessage);
     }
   }
 
@@ -92,8 +96,12 @@ class _UsersScreenState extends State<UsersScreen> {
         _loading = false;
       });
     } catch (e) {
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
       setState(() {
-        _error = e.toString();
+        _error = errorMessage;
         _loading = false;
       });
     }
@@ -189,7 +197,13 @@ class _UsersScreenState extends State<UsersScreen> {
               Navigator.of(ctx).pop();
             }
           } catch (e) {
-            if (mounted) NotificationService.error(context, e.toString());
+            if (mounted) {
+              String errorMessage = e.toString();
+              if (errorMessage.startsWith('Exception: ')) {
+                errorMessage = errorMessage.substring(11);
+              }
+              NotificationService.error(context, errorMessage);
+            }
           }
         }
 
@@ -383,7 +397,11 @@ class _UsersScreenState extends State<UsersScreen> {
       await svc.updateUser(id: id, data: {'password': ctrlNew.text});
       NotificationService.success(context, 'Mot de passe mis à jour, première connexion requise');
     } catch (e) {
-      NotificationService.error(context, e.toString());
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      NotificationService.error(context, errorMessage);
     }
   }
 
@@ -407,7 +425,11 @@ class _UsersScreenState extends State<UsersScreen> {
       });
       NotificationService.success(context, 'Statut mis à jour: $next');
     } catch (e) {
-      NotificationService.error(context, e.toString());
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      NotificationService.error(context, errorMessage);
     }
   }
 

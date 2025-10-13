@@ -759,7 +759,11 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
         NotificationService.success(context, 'Données trouvées et pré-remplies');
       }
     } catch (e) {
-      NotificationService.error(context, 'Erreur: $e');
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11);
+      }
+      NotificationService.error(context, errorMessage);
     }
   }
 
@@ -816,14 +820,20 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
         _contraventionFiles,
       );
       
-      if (result['state'] == true) {
+      if (result['success'] == true || result['state'] == true) {
         Navigator.of(context).pop();
-        NotificationService.success(context, 'Véhicule créé avec succès');
+        NotificationService.success(context, result['message'] ?? 'Véhicule créé avec succès');
       } else {
-        throw Exception(result['message']);
+        final errorMessage = result['message'] ?? 'Erreur lors de la création du véhicule';
+        NotificationService.error(context, errorMessage);
       }
     } catch (e) {
-      NotificationService.error(context, 'Erreur: $e');
+      // Extraire uniquement le message d'erreur sans le préfixe "Exception:"
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith('Exception: ')) {
+        errorMessage = errorMessage.substring(11); // Enlever "Exception: "
+      }
+      NotificationService.error(context, errorMessage);
     } finally {
       setState(() {
         _isLoading = false;

@@ -63,7 +63,11 @@ class AccidentApiService {
       
       return data;
     } catch (e) {
-      throw Exception('Erreur lors de la création de l\'accident: $e');
+      // Si c'est déjà une exception, la relancer telle quelle
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Erreur lors de la création de l\'accident');
     }
   }
 
@@ -75,8 +79,9 @@ class AccidentApiService {
         headers: {'Content-Type': 'application/json'},
       );
 
+      final data = jsonDecode(response.body);
+      
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
         if (data['ok'] == true && data['data'] != null) {
           return (data['data'] as List)
               .map((v) => VehiculeImplique.fromJson(v))
@@ -84,9 +89,16 @@ class AccidentApiService {
         }
         return [];
       }
-      throw Exception('Erreur de recherche: ${response.statusCode}');
+      
+      // Extraire uniquement le message d'erreur du JSON
+      final errorMessage = data['message'] ?? data['error'] ?? 'Erreur de recherche';
+      throw Exception(errorMessage);
     } catch (e) {
-      throw Exception('Erreur recherche véhicule: $e');
+      // Si c'est déjà une exception, la relancer telle quelle
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Erreur recherche véhicule');
     }
   }
 
@@ -121,9 +133,16 @@ class AccidentApiService {
         final id = data['id'] ?? data['vehicule_id'] ?? 0;
         return id is String ? int.parse(id) : id;
       }
-      throw Exception(data['error'] ?? data['message'] ?? 'Création impossible');
+      
+      // Extraire uniquement le message d'erreur du JSON
+      final errorMessage = data['message'] ?? data['error'] ?? 'Création impossible';
+      throw Exception(errorMessage);
     } catch (e) {
-      throw Exception('Erreur création véhicule: $e');
+      // Si c'est déjà une exception, la relancer telle quelle
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Erreur création véhicule');
     }
   }
 }

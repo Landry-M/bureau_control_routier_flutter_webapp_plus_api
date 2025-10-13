@@ -194,12 +194,18 @@ class _PartieImpliqueeModalState extends State<PartieImpliqueeModal> {
                   autoCloseDuration: const Duration(seconds: 3),
                 );
               } catch (e) {
+                // Extraire le message d'erreur propre
+                String errorMessage = e.toString();
+                if (errorMessage.startsWith('Exception: ')) {
+                  errorMessage = errorMessage.substring('Exception: '.length);
+                }
                 toastification.show(
                   context: context,
                   type: ToastificationType.error,
                   style: ToastificationStyle.fillColored,
                   title: const Text('Erreur de création'),
-                  description: Text(e.toString()),
+                  description: Text(errorMessage),
+                  autoCloseDuration: const Duration(seconds: 5),
                 );
               }
             },

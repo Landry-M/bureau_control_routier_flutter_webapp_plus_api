@@ -19,7 +19,7 @@ class ConducteurVehiculeController extends BaseController {
             // Vérifier l'unicité de la plaque
             $vehiculeController = new VehiculeController();
             if ($vehiculeController->plaqueExists($data['plaque'])) {
-                throw new Exception('Cette plaque d\'immatriculation existe déjà dans la base de données');
+                throw new Exception('Plaque déjà utilisée');
             }
             
             // 1. Créer le particulier (conducteur)

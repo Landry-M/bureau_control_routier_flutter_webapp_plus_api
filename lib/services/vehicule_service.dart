@@ -54,13 +54,21 @@ class VehiculeService {
         files: files,
       );
 
+      final responseData = json.decode(response.body);
+      
       if (response.statusCode == 200) {
-        return json.decode(response.body);
+        return responseData;
       } else {
-        throw Exception('Erreur HTTP ${response.statusCode}: ${response.body}');
+        // Extraire uniquement le message d'erreur du JSON
+        final errorMessage = responseData['message'] ?? 'Erreur lors de la création du véhicule';
+        throw Exception(errorMessage);
       }
     } catch (e) {
-      throw Exception('Erreur lors de la création du véhicule: $e');
+      // Si c'est déjà une exception avec un message, le relancer tel quel
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Erreur lors de la création du véhicule');
     }
   }
 
@@ -90,11 +98,15 @@ class VehiculeService {
       } else {
         // Debug: afficher la réponse complète pour diagnostiquer
         print('DEBUG VehiculeService - Réponse API: $data');
-        throw Exception(
-            data['message'] ?? data['error'] ?? 'Erreur lors de la récupération des véhicules');
+        final errorMessage = data['message'] ?? data['error'] ?? 'Erreur lors de la récupération des véhicules';
+        throw Exception(errorMessage);
       }
     } catch (e) {
-      throw Exception('Erreur lors de la récupération des véhicules: $e');
+      // Si c'est déjà une exception, la relancer telle quelle
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Erreur lors de la récupération des véhicules');
     }
   }
 
@@ -130,7 +142,11 @@ class VehiculeService {
       
       return [];
     } catch (e) {
-      throw Exception('Erreur lors de la recherche par plaque: $e');
+      // Si c'est déjà une exception, la relancer telle quelle
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Erreur lors de la recherche par plaque');
     }
   }
 
@@ -162,7 +178,11 @@ class VehiculeService {
 
       return null;
     } catch (e) {
-      throw Exception('Erreur lors de la recherche de plaque: $e');
+      // Si c'est déjà une exception, la relancer telle quelle
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Erreur lors de la recherche de plaque');
     }
   }
 
