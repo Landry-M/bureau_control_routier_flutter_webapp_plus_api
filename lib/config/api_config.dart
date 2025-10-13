@@ -133,4 +133,29 @@ class ApiConfig {
       return 'https://$_production/api/contravention_display.php?id=$contraventionId';
     }
   }
+
+  /// URL pour la prévisualisation de permis temporaire (affichage direct en HTML)
+  static String getPermisTemporaireDisplayUrl(int permisId) {
+    if (kIsWeb && Uri.base.host.contains('heaventech.net')) {
+      return 'https://${Uri.base.host}/api/permis_temporaire_display.php?id=$permisId';
+    }
+    
+    if (kDebugMode) {
+      if (kIsWeb) {
+        return 'http://$_localhost/api/permis_temporaire_display.php?id=$permisId';
+      }
+      
+      if (Platform.isAndroid) {
+        return 'http://$_androidEmulator/api/permis_temporaire_display.php?id=$permisId';
+      }
+      
+      if (Platform.isIOS) {
+        return 'http://$_iosSimulator/api/permis_temporaire_display.php?id=$permisId';
+      }
+      
+      return 'http://$_localhost/api/permis_temporaire_display.php?id=$permisId';
+    } else {
+      return 'https://$_production/api/permis_temporaire_display.php?id=$permisId';
+    }
+  }
 }

@@ -1069,6 +1069,47 @@ switch (true) {
         }
         break;
 
+    // Récupération d'un véhicule par ID
+    case $method === 'GET' && preg_match('/^\/vehicule\/(\d+)$/', $path, $matches):
+        try {
+            $vehiculeId = intval($matches[1]);
+            $pdo = getDbConnection();
+            
+            $stmt = $pdo->prepare("SELECT * FROM vehicule_plaque WHERE id = :id");
+            $stmt->bindParam(':id', $vehiculeId);
+            $stmt->execute();
+            $vehicule = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($vehicule) {
+                // Log de la consultation
+                LogController::record(
+                    $_GET['username'] ?? 'system',
+                    'Consultation détails véhicule',
+                    json_encode(['vehicule_id' => $vehiculeId]),
+                    $_SERVER['REMOTE_ADDR'] ?? '',
+                    $_SERVER['HTTP_USER_AGENT'] ?? ''
+                );
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $vehicule
+                ]);
+            } else {
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Véhicule introuvable'
+                ]);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur serveur: ' . $e->getMessage()
+            ]);
+        }
+        break;
+
     // Recherche globale de véhicules (pour la barre de recherche)
     case $method === 'GET' && $path === '/vehicules/search':
         try {
@@ -1607,6 +1648,47 @@ switch (true) {
         }
         break;
 
+    // Récupération d'un particulier par ID
+    case $method === 'GET' && preg_match('/^\/particulier\/(\d+)$/', $path, $matches):
+        try {
+            $particulierId = intval($matches[1]);
+            $pdo = getDbConnection();
+            
+            $stmt = $pdo->prepare("SELECT * FROM particuliers WHERE id = :id");
+            $stmt->bindParam(':id', $particulierId);
+            $stmt->execute();
+            $particulier = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($particulier) {
+                // Log de la consultation
+                LogController::record(
+                    $_GET['username'] ?? 'system',
+                    'Consultation détails particulier',
+                    json_encode(['particulier_id' => $particulierId]),
+                    $_SERVER['REMOTE_ADDR'] ?? '',
+                    $_SERVER['HTTP_USER_AGENT'] ?? ''
+                );
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $particulier
+                ]);
+            } else {
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Particulier introuvable'
+                ]);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur serveur: ' . $e->getMessage()
+            ]);
+        }
+        break;
+
     // Liste des entreprises avec pagination
     case $method === 'GET' && $path === '/entreprises':
         try {
@@ -1649,6 +1731,47 @@ switch (true) {
             echo json_encode([
                 'success' => false,
                 'error' => 'Erreur lors de la récupération des entreprises: ' . $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Récupération d'une entreprise par ID
+    case $method === 'GET' && preg_match('/^\/entreprise\/(\d+)$/', $path, $matches):
+        try {
+            $entrepriseId = intval($matches[1]);
+            $pdo = getDbConnection();
+            
+            $stmt = $pdo->prepare("SELECT * FROM entreprises WHERE id = :id");
+            $stmt->bindParam(':id', $entrepriseId);
+            $stmt->execute();
+            $entreprise = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($entreprise) {
+                // Log de la consultation
+                LogController::record(
+                    $_GET['username'] ?? 'system',
+                    'Consultation détails entreprise',
+                    json_encode(['entreprise_id' => $entrepriseId]),
+                    $_SERVER['REMOTE_ADDR'] ?? '',
+                    $_SERVER['HTTP_USER_AGENT'] ?? ''
+                );
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $entreprise
+                ]);
+            } else {
+                http_response_code(404);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Entreprise introuvable'
+                ]);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur serveur: ' . $e->getMessage()
             ]);
         }
         break;
@@ -3749,6 +3872,7 @@ switch (true) {
                     CASE 
                         WHEN c.type_dossier = 'particulier' THEN p.nom
                         WHEN c.type_dossier = 'entreprise' THEN e.designation
+                        WHEN c.type_dossier = 'vehicule_plaque' THEN CONCAT(v.marque, ' ', v.modele, ' (', v.plaque, ')')
                         ELSE 'N/A'
                     END as nom_contrevenant,
                     CASE 
@@ -3759,6 +3883,7 @@ switch (true) {
                 FROM contraventions c
                 LEFT JOIN particuliers p ON c.type_dossier = 'particulier' AND c.dossier_id = p.id
                 LEFT JOIN entreprises e ON c.type_dossier = 'entreprise' AND c.dossier_id = e.id
+                LEFT JOIN vehicule_plaque v ON c.type_dossier = 'vehicule_plaque' AND c.dossier_id = v.id
                 WHERE c.payed = 'non'
                 ORDER BY c.date_infraction DESC
             ");

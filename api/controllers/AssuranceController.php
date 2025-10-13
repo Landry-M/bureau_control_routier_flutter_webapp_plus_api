@@ -120,7 +120,11 @@ class AssuranceController extends BaseController {
      */
     public function getExpiredAssurances() {
         try {
-            $query = "SELECT a.*, v.plaque, v.marque, v.modele 
+            $query = "SELECT a.*, 
+                     v.id as vehicule_id, 
+                     v.plaque, 
+                     v.marque, 
+                     v.modele 
                      FROM {$this->table} a
                      LEFT JOIN vehicule_plaque v ON a.vehicule_plaque_id = v.id
                      WHERE a.date_expire_assurance < CURDATE()

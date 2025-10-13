@@ -48,4 +48,20 @@ class ParticulierService {
       };
     }
   }
+
+  /// Récupère un particulier par ID
+  Future<Map<String, dynamic>?> getParticulierById(int id) async {
+    try {
+      final response = await _apiClient.get('/particulier/$id');
+      final data = json.decode(response.body);
+
+      if (data['success'] == true) {
+        return data['data'];
+      } else {
+        return null;
+      }
+    } catch (e) {
+      return null;
+    }
+  }
 }

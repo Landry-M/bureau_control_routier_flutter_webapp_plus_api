@@ -48,4 +48,20 @@ class EntrepriseService {
       };
     }
   }
+
+  /// Récupère une entreprise par ID
+  Future<Map<String, dynamic>?> getEntrepriseById(int id) async {
+    try {
+      final response = await _apiClient.get('/entreprise/$id');
+      final data = json.decode(response.body);
+
+      if (data['success'] == true) {
+        return data['data'];
+      } else {
+        return null;
+      }
+    } catch (e) {
+      return null;
+    }
+  }
 }

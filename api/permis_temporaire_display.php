@@ -5,22 +5,20 @@
 //   - ?particulier_id={id}&numero={numero}
 //   - ?particulier_id={id}  (résout automatiquement le permis actif)
 
-require_once __DIR__ . '/../model/Db.php';
-require_once __DIR__ . '/../control/PermisTemporaireController.php';
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/config/database.php';
 
-use Model\Db;
-use Control\PermisTemporaireController;
-//use ORM;
-
-if(!isset($_SESSION))
-{
+if(!isset($_SESSION)) {
    session_start();
 }
 
-// Initialiser la connexion
-$db = new Db();
-$db->getConnexion();
+// Initialiser la connexion PDO
+$database = new Database();
+$pdo = $database->getConnection();
+
+if (!$pdo) {
+    echo "<div style='text-align: center; margin: 50px; color: red; font-size: 18px;'>Erreur de connexion à la base de données</div>";
+    exit;
+}
 
 // Récupérer les paramètres
 $permisId = (int)($_GET['id'] ?? 0);
@@ -34,33 +32,46 @@ $error = null;
 try {
     if ($permisId > 0) {
         // Récupérer par ID de permis
-        $permis = ORM::for_table('permis_temporaire')->find_one($permisId);
+        $stmt = $pdo->prepare("SELECT * FROM permis_temporaire WHERE id = :id");
+        $stmt->bindParam(':id', $permisId);
+        $stmt->execute();
+        $permis = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($permis) {
-            $particulierId = (int)$permis->cible_id;
+            $particulierId = (int)$permis['cible_id'];
         }
     } elseif ($particulierId > 0 && $numero !== '') {
         // Récupérer par particulier_id et numéro
-        $permis = ORM::for_table('permis_temporaire')
-            ->where('cible_type', 'particulier')
-            ->where('cible_id', $particulierId)
-            ->where('numero', $numero)
-            ->find_one();
+        $stmt = $pdo->prepare("SELECT * FROM permis_temporaire 
+                              WHERE cible_type = 'particulier' 
+                              AND cible_id = :cible_id 
+                              AND numero = :numero");
+        $stmt->bindParam(':cible_id', $particulierId);
+        $stmt->bindParam(':numero', $numero);
+        $stmt->execute();
+        $permis = $stmt->fetch(PDO::FETCH_ASSOC);
     } elseif ($particulierId > 0) {
         // Sans numéro fourni: tenter de récupérer le permis actif, sinon le plus récent
-        $permis = ORM::for_table('permis_temporaire')
-            ->where('cible_type', 'particulier')
-            ->where('cible_id', $particulierId)
-            ->order_by_desc('id')
-            ->find_one();
+        $stmt = $pdo->prepare("SELECT * FROM permis_temporaire 
+                              WHERE cible_type = 'particulier' 
+                              AND cible_id = :cible_id 
+                              ORDER BY id DESC LIMIT 1");
+        $stmt->bindParam(':cible_id', $particulierId);
+        $stmt->execute();
+        $permis = $stmt->fetch(PDO::FETCH_ASSOC);
+        
         if ($permis) {
             // Si plusieurs existent, préférer actif
-            $active = ORM::for_table('permis_temporaire')
-                ->where('cible_type', 'particulier')
-                ->where('cible_id', $particulierId)
-                ->where('statut', 'actif')
-                ->order_by_desc('id')
-                ->find_one();
-            if ($active) { $permis = $active; }
+            $stmt = $pdo->prepare("SELECT * FROM permis_temporaire 
+                                  WHERE cible_type = 'particulier' 
+                                  AND cible_id = :cible_id 
+                                  AND statut = 'actif' 
+                                  ORDER BY id DESC LIMIT 1");
+            $stmt->bindParam(':cible_id', $particulierId);
+            $stmt->execute();
+            $active = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($active) { 
+                $permis = $active; 
+            }
         }
     }
 
@@ -68,7 +79,11 @@ try {
         $error = "Permis temporaire introuvable";
     } else {
         // Récupérer les infos du particulier
-        $particulier = ORM::for_table('particuliers')->find_one($particulierId);
+        $stmt = $pdo->prepare("SELECT * FROM particuliers WHERE id = :id");
+        $stmt->bindParam(':id', $particulierId);
+        $stmt->execute();
+        $particulier = $stmt->fetch(PDO::FETCH_ASSOC);
+        
         if (!$particulier) {
             $error = "Particulier introuvable";
         }
@@ -83,13 +98,13 @@ if ($error) {
 }
 
 // Préparer les données pour l'affichage
-$numero = $permis->numero ?? '';
-$date_debut = $permis->date_debut ?? '';
-$date_fin = $permis->date_fin ?? '';
-$motif = htmlspecialchars((string)($permis->motif ?? ''), ENT_QUOTES);
+$numero = $permis['numero'] ?? '';
+$date_debut = $permis['date_debut'] ?? '';
+$date_fin = $permis['date_fin'] ?? '';
+$motif = htmlspecialchars((string)($permis['motif'] ?? ''), ENT_QUOTES);
 
 // Formater les données du particulier
-$nom = htmlspecialchars((string)($particulier->nom ?? ''), ENT_QUOTES);
+$nom = htmlspecialchars((string)($particulier['nom'] ?? ''), ENT_QUOTES);
 $prenom = '';
 // Séparer nom et prénom si stockés ensemble
 if ($nom && strpos($nom, ' ') !== false) {
@@ -100,25 +115,34 @@ if ($nom && strpos($nom, ' ') !== false) {
     }
 }
 
-$numero_national = htmlspecialchars((string)($particulier->numero_national ?? ''), ENT_QUOTES);
-$adresse = htmlspecialchars((string)($particulier->adresse ?? ''), ENT_QUOTES);
-$nationalite = htmlspecialchars((string)($particulier->nationalite ?? 'Congolaise'), ENT_QUOTES);
-$date_naissance = htmlspecialchars((string)($particulier->date_naissance ?? ''), ENT_QUOTES);
-$lieu_naissance = htmlspecialchars((string)($particulier->lieu_naissance ?? ''), ENT_QUOTES);
+$numero_national = htmlspecialchars((string)($particulier['numero_national'] ?? ''), ENT_QUOTES);
+$adresse = htmlspecialchars((string)($particulier['adresse'] ?? ''), ENT_QUOTES);
+$nationalite = htmlspecialchars((string)($particulier['nationalite'] ?? 'Congolaise'), ENT_QUOTES);
+$date_naissance = htmlspecialchars((string)($particulier['date_naissance'] ?? ''), ENT_QUOTES);
+$lieu_naissance = htmlspecialchars((string)($particulier['lieu_naissance'] ?? ''), ENT_QUOTES);
 
 // Gérer la photo
 $photoSrc = '';
-$photoRel = (string)($particulier->photo ?? '');
+$photoRel = (string)($particulier['photo'] ?? '');
 if ($photoRel !== '') {
-    $fsPath = __DIR__ . '/../' . ltrim($photoRel, '/');
-    if (is_file($fsPath)) {
-        $mime = 'image/jpeg';
-        $ext = strtolower(pathinfo($fsPath, PATHINFO_EXTENSION));
-        if ($ext === 'png') $mime = 'image/png'; 
-        elseif ($ext === 'gif') $mime = 'image/gif';
-        $photoData = @file_get_contents($fsPath);
-        if ($photoData !== false) { 
-            $photoSrc = 'data:' . $mime . ';base64,' . base64_encode($photoData); 
+    // Essayer plusieurs chemins possibles
+    $possiblePaths = [
+        __DIR__ . '/../' . ltrim($photoRel, '/'),
+        __DIR__ . '/' . ltrim($photoRel, '/'),
+        __DIR__ . '/../uploads/' . ltrim($photoRel, '/'),
+    ];
+    
+    foreach ($possiblePaths as $fsPath) {
+        if (is_file($fsPath)) {
+            $mime = 'image/jpeg';
+            $ext = strtolower(pathinfo($fsPath, PATHINFO_EXTENSION));
+            if ($ext === 'png') $mime = 'image/png'; 
+            elseif ($ext === 'gif') $mime = 'image/gif';
+            $photoData = @file_get_contents($fsPath);
+            if ($photoData !== false) { 
+                $photoSrc = 'data:' . $mime . ';base64,' . base64_encode($photoData); 
+                break;
+            }
         }
     }
 }
@@ -674,7 +698,10 @@ $fmt = function($d) {
                 formData.append('pdf', pdfBlob, `permis_temporaire_${numero}.pdf`);
                 formData.append('permis_id', permisId);
                 
-                const response = await fetch(`http://localhost:8000/api/routes/index.php/permis-temporaire/${permisId}/save-pdf`, {
+                // Construire l'URL relative depuis le répertoire api
+                const apiUrl = window.location.origin + '/api/routes/index.php/permis-temporaire/' + permisId + '/save-pdf';
+                
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     body: formData
                 });

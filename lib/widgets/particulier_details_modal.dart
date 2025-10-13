@@ -2171,8 +2171,22 @@ class _ParticulierDetailsModalState extends State<ParticulierDetailsModal>
 
   void _viewPermisTemporairePdf(Map<String, dynamic> permis) async {
     final permisId = permis['id'];
-    final previewUrl =
-        "${ApiConfig.imageBaseUrl}/permis_temporaire_display.php?id=$permisId";
+    
+    // Convertir l'ID en int si c'est une string
+    final int? id = permisId is int ? permisId : int.tryParse(permisId.toString());
+    
+    if (id == null) {
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        title: const Text('Erreur'),
+        description: const Text('ID du permis invalide'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
+      return;
+    }
+    
+    final previewUrl = ApiConfig.getPermisTemporaireDisplayUrl(id);
 
     try {
       final uri = Uri.parse(previewUrl);

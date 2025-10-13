@@ -188,14 +188,18 @@ class VehiculeService {
 
   /// Récupère un véhicule par ID interne
   Future<Map<String, dynamic>?> getVehiculeById(int id) async {
-    final resp = await _apiClient.get('/vehicule/$id');
-    if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      final data = json.decode(resp.body);
-      if (data is Map<String, dynamic> && data['state'] == true && data['data'] != null) {
-        return Map<String, dynamic>.from(data['data']);
+    try {
+      final resp = await _apiClient.get('/vehicule/$id');
+      if (resp.statusCode >= 200 && resp.statusCode < 300) {
+        final data = json.decode(resp.body);
+        if (data is Map<String, dynamic> && data['success'] == true && data['data'] != null) {
+          return Map<String, dynamic>.from(data['data']);
+        }
       }
+      return null;
+    } catch (e) {
+      return null;
     }
-    return null;
   }
 }
 

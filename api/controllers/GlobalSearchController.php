@@ -86,29 +86,32 @@ class GlobalSearchController extends BaseController {
         $sql = "SELECT id, plaque, marque, modele, couleur, annee, created_at,
                        'vehicule' as type, 'Véhicule' as type_label
                 FROM vehicule_plaque 
-                WHERE plaque LIKE :search 
-                   OR marque LIKE :search 
-                   OR modele LIKE :search 
-                   OR couleur LIKE :search 
-                   OR annee LIKE :search
-                   OR numero_chassis LIKE :search
-                   OR frontiere_entree LIKE :search
-                   OR nume_assurance LIKE :search
-                   OR societe_assurance LIKE :search
-                   OR genre LIKE :search
-                   OR `usage` LIKE :search
-                   OR numero_declaration LIKE :search
-                   OR num_moteur LIKE :search
-                   OR origine LIKE :search
-                   OR source LIKE :search
-                   OR annee_fab LIKE :search
-                   OR annee_circ LIKE :search
-                   OR type_em LIKE :search
+                WHERE plaque LIKE ? 
+                   OR marque LIKE ? 
+                   OR modele LIKE ? 
+                   OR couleur LIKE ? 
+                   OR annee LIKE ?
+                   OR numero_chassis LIKE ?
+                   OR frontiere_entree LIKE ?
+                   OR nume_assurance LIKE ?
+                   OR societe_assurance LIKE ?
+                   OR genre LIKE ?
+                   OR `usage` LIKE ?
+                   OR numero_declaration LIKE ?
+                   OR num_moteur LIKE ?
+                   OR origine LIKE ?
+                   OR source LIKE ?
+                   OR annee_fab LIKE ?
+                   OR annee_circ LIKE ?
+                   OR type_em LIKE ?
                 ORDER BY created_at DESC
                 LIMIT 20";
         
         $stmt = $this->db->prepare($sql);
-        $stmt->bindParam(':search', $searchTerm);
+        // Bind le même terme pour chaque placeholder (18 fois)
+        for ($i = 1; $i <= 18; $i++) {
+            $stmt->bindValue($i, $searchTerm);
+        }
         $stmt->execute();
         
         $results = [];
@@ -132,24 +135,26 @@ class GlobalSearchController extends BaseController {
         $sql = "SELECT id, nom, adresse, gsm, email, numero_national, created_at,
                        'particulier' as type, 'Particulier' as type_label
                 FROM particuliers 
-                WHERE nom LIKE :search 
-                   OR adresse LIKE :search 
-                   OR gsm LIKE :search 
-                   OR email LIKE :search 
-                   OR numero_national LIKE :search
-                   OR profession LIKE :search
-                   OR genre LIKE :search
-                   OR lieu_naissance LIKE :search
-                   OR nationalite LIKE :search
-                   OR etat_civil LIKE :search
-                   OR personne_contact LIKE :search
-                   OR personne_contact_telephone LIKE :search
-                   OR observations LIKE :search
+                WHERE nom LIKE ? 
+                   OR adresse LIKE ? 
+                   OR gsm LIKE ? 
+                   OR email LIKE ? 
+                   OR numero_national LIKE ?
+                   OR profession LIKE ?
+                   OR genre LIKE ?
+                   OR lieu_naissance LIKE ?
+                   OR nationalite LIKE ?
+                   OR etat_civil LIKE ?
+                   OR personne_contact LIKE ?
+                   OR personne_contact_telephone LIKE ?
+                   OR observations LIKE ?
                 ORDER BY created_at DESC
                 LIMIT 20";
         
         $stmt = $this->db->prepare($sql);
-        $stmt->bindParam(':search', $searchTerm);
+        for ($i = 1; $i <= 13; $i++) {
+            $stmt->bindValue($i, $searchTerm);
+        }
         $stmt->execute();
         
         $results = [];
@@ -173,21 +178,23 @@ class GlobalSearchController extends BaseController {
         $sql = "SELECT id, designation, rccm, siege_social, gsm, email, created_at,
                        'entreprise' as type, 'Entreprise' as type_label
                 FROM entreprises 
-                WHERE designation LIKE :search 
-                   OR rccm LIKE :search 
-                   OR siege_social LIKE :search 
-                   OR gsm LIKE :search 
-                   OR email LIKE :search
-                   OR personne_contact LIKE :search
-                   OR fonction_contact LIKE :search
-                   OR telephone_contact LIKE :search
-                   OR secteur LIKE :search
-                   OR observations LIKE :search
+                WHERE designation LIKE ? 
+                   OR rccm LIKE ? 
+                   OR siege_social LIKE ? 
+                   OR gsm LIKE ? 
+                   OR email LIKE ?
+                   OR personne_contact LIKE ?
+                   OR fonction_contact LIKE ?
+                   OR telephone_contact LIKE ?
+                   OR secteur LIKE ?
+                   OR observations LIKE ?
                 ORDER BY created_at DESC
                 LIMIT 20";
         
         $stmt = $this->db->prepare($sql);
-        $stmt->bindParam(':search', $searchTerm);
+        for ($i = 1; $i <= 10; $i++) {
+            $stmt->bindValue($i, $searchTerm);
+        }
         $stmt->execute();
         
         $results = [];
@@ -211,19 +218,21 @@ class GlobalSearchController extends BaseController {
         $sql = "SELECT id, type_infraction, lieu, description, amende, date_infraction, created_at,
                        'contravention' as type, 'Contravention' as type_label
                 FROM contraventions 
-                WHERE type_infraction LIKE :search 
-                   OR lieu LIKE :search 
-                   OR description LIKE :search 
-                   OR reference_loi LIKE :search
-                   OR amende LIKE :search
-                   OR dossier_id LIKE :search
-                   OR type_dossier LIKE :search
-                   OR payed LIKE :search
+                WHERE type_infraction LIKE ? 
+                   OR lieu LIKE ? 
+                   OR description LIKE ? 
+                   OR reference_loi LIKE ?
+                   OR amende LIKE ?
+                   OR dossier_id LIKE ?
+                   OR type_dossier LIKE ?
+                   OR payed LIKE ?
                 ORDER BY created_at DESC
                 LIMIT 20";
         
         $stmt = $this->db->prepare($sql);
-        $stmt->bindParam(':search', $searchTerm);
+        for ($i = 1; $i <= 8; $i++) {
+            $stmt->bindValue($i, $searchTerm);
+        }
         $stmt->execute();
         
         $results = [];
@@ -247,15 +256,17 @@ class GlobalSearchController extends BaseController {
         $sql = "SELECT id, lieu, gravite, description, date_accident, created_at,
                        'accident' as type, 'Accident' as type_label
                 FROM accidents 
-                WHERE lieu LIKE :search 
-                   OR description LIKE :search 
-                   OR gravite LIKE :search
-                   OR images LIKE :search
+                WHERE lieu LIKE ? 
+                   OR description LIKE ? 
+                   OR gravite LIKE ?
+                   OR images LIKE ?
                 ORDER BY created_at DESC
                 LIMIT 20";
         
         $stmt = $this->db->prepare($sql);
-        $stmt->bindParam(':search', $searchTerm);
+        for ($i = 1; $i <= 4; $i++) {
+            $stmt->bindValue($i, $searchTerm);
+        }
         $stmt->execute();
         
         $results = [];
@@ -281,15 +292,17 @@ class GlobalSearchController extends BaseController {
                        'arrestation' as type, 'Arrestation' as type_label
                 FROM arrestations a
                 LEFT JOIN particuliers p ON a.particulier_id = p.id
-                WHERE a.motif LIKE :search 
-                   OR a.lieu LIKE :search 
-                   OR a.created_by LIKE :search
-                   OR p.nom LIKE :search
+                WHERE a.motif LIKE ? 
+                   OR a.lieu LIKE ? 
+                   OR a.created_by LIKE ?
+                   OR p.nom LIKE ?
                 ORDER BY a.created_at DESC
                 LIMIT 20";
         
         $stmt = $this->db->prepare($sql);
-        $stmt->bindParam(':search', $searchTerm);
+        for ($i = 1; $i <= 4; $i++) {
+            $stmt->bindValue($i, $searchTerm);
+        }
         $stmt->execute();
         
         $results = [];
@@ -313,16 +326,18 @@ class GlobalSearchController extends BaseController {
         $sql = "SELECT id, username, matricule, telephone, role, poste, created_at,
                        'user' as type, 'Utilisateur/Agent' as type_label
                 FROM users 
-                WHERE username LIKE :search 
-                   OR matricule LIKE :search 
-                   OR telephone LIKE :search 
-                   OR role LIKE :search
-                   OR poste LIKE :search
+                WHERE username LIKE ? 
+                   OR matricule LIKE ? 
+                   OR telephone LIKE ? 
+                   OR role LIKE ?
+                   OR poste LIKE ?
                 ORDER BY created_at DESC
                 LIMIT 20";
         
         $stmt = $this->db->prepare($sql);
-        $stmt->bindParam(':search', $searchTerm);
+        for ($i = 1; $i <= 5; $i++) {
+            $stmt->bindValue($i, $searchTerm);
+        }
         $stmt->execute();
         
         $results = [];
@@ -346,15 +361,17 @@ class GlobalSearchController extends BaseController {
         $sql = "SELECT id, cible_type, cible_id, motif, niveau, created_at,
                        'avis_recherche' as type, 'Avis de recherche' as type_label
                 FROM avis_recherche 
-                WHERE motif LIKE :search 
-                   OR cible_type LIKE :search 
-                   OR niveau LIKE :search
-                   OR created_by LIKE :search
+                WHERE motif LIKE ? 
+                   OR cible_type LIKE ? 
+                   OR niveau LIKE ?
+                   OR created_by LIKE ?
                 ORDER BY created_at DESC
                 LIMIT 20";
         
         $stmt = $this->db->prepare($sql);
-        $stmt->bindParam(':search', $searchTerm);
+        for ($i = 1; $i <= 4; $i++) {
+            $stmt->bindValue($i, $searchTerm);
+        }
         $stmt->execute();
         
         $results = [];
@@ -378,15 +395,17 @@ class GlobalSearchController extends BaseController {
         $sql = "SELECT id, numero, cible_type, cible_id, motif, created_at,
                        'permis_temporaire' as type, 'Permis temporaire' as type_label
                 FROM permis_temporaire 
-                WHERE numero LIKE :search 
-                   OR motif LIKE :search 
-                   OR cible_type LIKE :search
-                   OR created_by LIKE :search
+                WHERE numero LIKE ? 
+                   OR motif LIKE ? 
+                   OR cible_type LIKE ?
+                   OR created_by LIKE ?
                 ORDER BY created_at DESC
                 LIMIT 20";
         
         $stmt = $this->db->prepare($sql);
-        $stmt->bindParam(':search', $searchTerm);
+        for ($i = 1; $i <= 4; $i++) {
+            $stmt->bindValue($i, $searchTerm);
+        }
         $stmt->execute();
         
         $results = [];
@@ -410,16 +429,18 @@ class GlobalSearchController extends BaseController {
         $sql = "SELECT id, nom, telephone, age, lien_avec_accident, temoignage, created_at,
                        'temoin' as type, 'Témoin' as type_label
                 FROM temoins 
-                WHERE nom LIKE :search 
-                   OR telephone LIKE :search 
-                   OR age LIKE :search
-                   OR lien_avec_accident LIKE :search
-                   OR temoignage LIKE :search
+                WHERE nom LIKE ? 
+                   OR telephone LIKE ? 
+                   OR age LIKE ?
+                   OR lien_avec_accident LIKE ?
+                   OR temoignage LIKE ?
                 ORDER BY created_at DESC
                 LIMIT 20";
         
         $stmt = $this->db->prepare($sql);
-        $stmt->bindParam(':search', $searchTerm);
+        for ($i = 1; $i <= 5; $i++) {
+            $stmt->bindValue($i, $searchTerm);
+        }
         $stmt->execute();
         
         $results = [];
@@ -445,16 +466,18 @@ class GlobalSearchController extends BaseController {
                        'assurance' as type, 'Assurance véhicule' as type_label
                 FROM assurance_vehicule av
                 LEFT JOIN vehicule_plaque vp ON av.vehicule_plaque_id = vp.id
-                WHERE av.societe_assurance LIKE :search 
-                   OR av.nume_assurance LIKE :search 
-                   OR av.type_couverture LIKE :search
-                   OR av.notes LIKE :search
-                   OR vp.plaque LIKE :search
+                WHERE av.societe_assurance LIKE ? 
+                   OR av.nume_assurance LIKE ? 
+                   OR av.type_couverture LIKE ?
+                   OR av.notes LIKE ?
+                   OR vp.plaque LIKE ?
                 ORDER BY av.created_at DESC
                 LIMIT 20";
         
         $stmt = $this->db->prepare($sql);
-        $stmt->bindParam(':search', $searchTerm);
+        for ($i = 1; $i <= 5; $i++) {
+            $stmt->bindValue($i, $searchTerm);
+        }
         $stmt->execute();
         
         $results = [];
