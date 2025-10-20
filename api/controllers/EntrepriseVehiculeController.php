@@ -285,7 +285,7 @@ class EntrepriseVehiculeController extends BaseController
                     ev.*,
                     e.designation,
                     e.rccm,
-                    e.telephone,
+                    COALESCE(e.telephone_contact, e.gsm) as telephone,
                     e.email,
                     e.siege_social
                 FROM entreprise_vehicule ev

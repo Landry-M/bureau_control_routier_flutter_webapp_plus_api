@@ -102,9 +102,10 @@ class AuthController extends BaseController {
      */
     public function login($matricule, $password) {
         try {
-            $query = "SELECT * FROM {$this->table} WHERE matricule = :matricule OR username = :matricule LIMIT 1";
+            $query = "SELECT * FROM {$this->table} WHERE matricule = :matricule OR username = :username LIMIT 1";
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':matricule', $matricule);
+            $stmt->bindParam(':username', $matricule);
             $stmt->execute();
             
             if ($stmt->rowCount() > 0) {

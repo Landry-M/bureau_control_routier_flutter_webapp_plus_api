@@ -15,7 +15,7 @@ class SosModal extends StatelessWidget {
       backgroundColor: Colors.transparent,
       child: Container(
         width: MediaQuery.of(context).size.width * 0.5,
-        height: MediaQuery.of(context).size.height * 0.4,
+        height: MediaQuery.of(context).size.height * 0.5,
         decoration: BoxDecoration(
           color: colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
@@ -76,19 +76,21 @@ class SosModal extends StatelessWidget {
                       context: context,
                       icon: Icons.person_search,
                       title: 'Avis de recherche - Particulier',
-                      subtitle: 'Émettre un avis de recherche concernant une personne',
+                      subtitle:
+                          'Émettre un avis de recherche concernant une personne',
                       color: Colors.blue,
                       onTap: () => _showParticulierModal(context),
                     ),
-                    
+
                     const SizedBox(height: 16),
-                    
+
                     // Option Véhicule
                     _buildOptionCard(
                       context: context,
                       icon: Icons.directions_car,
                       title: 'Avis de recherche - Véhicule',
-                      subtitle: 'Émettre un avis de recherche concernant un véhicule',
+                      subtitle:
+                          'Émettre un avis de recherche concernant un véhicule',
                       color: Colors.orange,
                       onTap: () => _showVehiculeModal(context),
                     ),
@@ -111,7 +113,7 @@ class SosModal extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     final theme = Theme.of(context);
-    
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),

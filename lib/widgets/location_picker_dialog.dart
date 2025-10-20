@@ -16,6 +16,7 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
   static const LatLng _lubumbashiCenter = LatLng(-11.6689, 27.4794);
 
   final Completer<GoogleMapController> _mapControllerCompleter = Completer();
+  GoogleMapController? _mapController;
   LatLng _selectedPosition = _lubumbashiCenter;
   String _selectedAddress = 'Lubumbashi, RDC';
   bool _isLoadingAddress = false;
@@ -30,11 +31,9 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
 
   @override
   void dispose() {
-    _mapControllerCompleter.future.then((controller) {
-      controller.dispose();
-    }).catchError((_) {
-      // Contrôleur pas encore initialisé
-    });
+    // Disposer le contrôleur de manière synchrone si disponible
+    _mapController?.dispose();
+    _mapController = null;
     super.dispose();
   }
 
@@ -294,6 +293,7 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
                     ),
                     markers: _markers,
                     onMapCreated: (controller) {
+                      _mapController = controller;
                       if (!_mapControllerCompleter.isCompleted) {
                         _mapControllerCompleter.complete(controller);
                       }

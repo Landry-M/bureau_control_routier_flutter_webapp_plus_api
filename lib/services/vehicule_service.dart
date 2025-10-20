@@ -192,12 +192,18 @@ class VehiculeService {
       final resp = await _apiClient.get('/vehicule/$id');
       if (resp.statusCode >= 200 && resp.statusCode < 300) {
         final data = json.decode(resp.body);
-        if (data is Map<String, dynamic> && data['success'] == true && data['data'] != null) {
+        print('📦 Réponse API pour véhicule $id: $data'); // Debug
+        
+        // L'API retourne 'state' ou 'success' selon l'endpoint
+        if (data is Map<String, dynamic> && 
+            (data['success'] == true || data['state'] == true) && 
+            data['data'] != null) {
           return Map<String, dynamic>.from(data['data']);
         }
       }
       return null;
     } catch (e) {
+      print('❌ Exception dans getVehiculeById: $e'); // Debug
       return null;
     }
   }

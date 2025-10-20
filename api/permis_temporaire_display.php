@@ -121,6 +121,11 @@ $nationalite = htmlspecialchars((string)($particulier['nationalite'] ?? 'Congola
 $date_naissance = htmlspecialchars((string)($particulier['date_naissance'] ?? ''), ENT_QUOTES);
 $lieu_naissance = htmlspecialchars((string)($particulier['lieu_naissance'] ?? ''), ENT_QUOTES);
 
+// Déterminer l'URL de base pour les assets
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$baseUrl = $protocol . '://' . $host;
+
 // Gérer la photo
 $photoSrc = '';
 $photoRel = (string)($particulier['photo'] ?? '');
@@ -251,12 +256,8 @@ $fmt = function($d) {
         .header .flag {
             width: 40px;
             height: 27px;
-            border: 1px solid #000;
             margin-right: 10px;
-            background-image: url('../assets/images/drapeau.png');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
+            object-fit: contain;
         }
 
         .header .title {
@@ -567,7 +568,10 @@ $fmt = function($d) {
 
         <div class="header">
             <div class="flag-and-title">
-                <div class="flag"></div>
+                <img src="<?= $baseUrl ?>/api/assets/images/drapeau.png" 
+                     alt="Drapeau RDC" 
+                     class="flag"
+                     onerror="this.style.display='none'">
                 <div class="title">
                     <h1>REPUBLIQUE DEMOCRATIQUE DU CONGO</h1>
                     <div class="subtitle">PERMIS DE CONDUIRE * TEMPORAIRE</div>

@@ -302,8 +302,11 @@ class ParticulierController extends BaseController {
             $whereClause = '';
             $params = [];
             if (!empty($search)) {
-                $whereClause = 'WHERE nom LIKE :search OR gsm LIKE :search OR numero_permis LIKE :search';
-                $params[':search'] = '%' . $search . '%';
+                $whereClause = 'WHERE nom LIKE :search1 OR gsm LIKE :search2 OR adresse LIKE :search3';
+                $searchParam = '%' . $search . '%';
+                $params[':search1'] = $searchParam;
+                $params[':search2'] = $searchParam;
+                $params[':search3'] = $searchParam;
             }
             
             // Count total records

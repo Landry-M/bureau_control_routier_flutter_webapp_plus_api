@@ -142,8 +142,12 @@ class EntrepriseController extends BaseController {
             $whereClause = '';
             $params = [];
             if (!empty($search)) {
-                $whereClause = 'WHERE designation LIKE :search OR gsm LIKE :search OR rccm LIKE :search OR email LIKE :search';
-                $params[':search'] = '%' . $search . '%';
+                $whereClause = 'WHERE designation LIKE :search1 OR gsm LIKE :search2 OR rccm LIKE :search3 OR email LIKE :search4';
+                $searchValue = '%' . $search . '%';
+                $params[':search1'] = $searchValue;
+                $params[':search2'] = $searchValue;
+                $params[':search3'] = $searchValue;
+                $params[':search4'] = $searchValue;
             }
             
             // Count total records

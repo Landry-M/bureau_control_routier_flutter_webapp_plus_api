@@ -2,6 +2,14 @@
 // Minimal router stub matching endpoints in lib/spec.md
 // Note: This is a simple placeholder router. Replace with a real framework later.
 
+// Désactiver l'affichage des erreurs pour éviter les sorties HTML
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+
+// Démarrer l'output buffering pour capturer toute sortie accidentelle
+ob_start();
+
 // Configuration CORS pour accepter toutes les origines
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH');
@@ -1013,8 +1021,12 @@ switch (true) {
             $whereClause = '';
             $params = [];
             if (!empty($search)) {
-                $whereClause = 'WHERE plaque LIKE :search OR marque LIKE :search OR modele LIKE :search OR proprietaire LIKE :search';
-                $params[':search'] = '%' . $search . '%';
+                $whereClause = 'WHERE plaque LIKE :search1 OR marque LIKE :search2 OR modele LIKE :search3 OR proprietaire LIKE :search4';
+                $searchParam = '%' . $search . '%';
+                $params[':search1'] = $searchParam;
+                $params[':search2'] = $searchParam;
+                $params[':search3'] = $searchParam;
+                $params[':search4'] = $searchParam;
             }
             
             // Compter le total
@@ -1065,6 +1077,97 @@ switch (true) {
             echo json_encode([
                 'success' => false,
                 'error' => 'Erreur lors de la récupération des véhicules: ' . $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Création d'un véhicule (avec vérification de doublon)
+    case $method === 'POST' && $path === '/vehicules/create':
+        try {
+            $raw = file_get_contents('php://input');
+            $data = json_decode($raw, true) ?? [];
+            
+            // Validation des champs requis
+            if (empty($data['plaque'])) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'La plaque d\'immatriculation est requise'
+                ]);
+                break;
+            }
+            
+            if (empty($data['marque'])) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'La marque est requise'
+                ]);
+                break;
+            }
+            
+            $pdo = getDbConnection();
+            
+            // Vérifier si un véhicule avec la même plaque existe déjà
+            $checkStmt = $pdo->prepare("SELECT id FROM vehicule_plaque WHERE plaque = :plaque");
+            $checkStmt->bindValue(':plaque', $data['plaque']);
+            $checkStmt->execute();
+            $existingVehicule = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Si le véhicule existe déjà, retourner son ID
+            if ($existingVehicule) {
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Véhicule existant trouvé',
+                    'id' => (int)$existingVehicule['id'],
+                    'existing' => true
+                ]);
+                break;
+            }
+            
+            // Sinon, créer un nouveau véhicule (avec seulement les colonnes existantes)
+            $insertQuery = "INSERT INTO vehicule_plaque (
+                plaque, marque, modele, couleur, annee,
+                numero_chassis, en_circulation, created_at
+            ) VALUES (
+                :plaque, :marque, :modele, :couleur, :annee,
+                :numero_chassis, 1, NOW()
+            )";
+            
+            $insertStmt = $pdo->prepare($insertQuery);
+            $insertStmt->execute([
+                ':plaque' => $data['plaque'],
+                ':marque' => $data['marque'],
+                ':modele' => $data['modele'] ?? null,
+                ':couleur' => $data['couleur'] ?? null,
+                ':annee' => $data['annee'] ?? null,
+                ':numero_chassis' => $data['numero_chassis'] ?? null
+            ]);
+            
+            $vehiculeId = (int)$pdo->lastInsertId();
+            
+            // Log de la création
+            LogController::record(
+                $data['username'] ?? 'system',
+                'Création véhicule',
+                ['vehicule_id' => $vehiculeId, 'plaque' => $data['plaque']],
+                $_SERVER['REMOTE_ADDR'] ?? null,
+                $_SERVER['HTTP_USER_AGENT'] ?? null
+            );
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Véhicule créé avec succès',
+                'id' => $vehiculeId,
+                'existing' => false
+            ]);
+            
+        } catch (Exception $e) {
+            error_log("Erreur création véhicule: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur lors de la création du véhicule: ' . $e->getMessage()
             ]);
         }
         break;
@@ -1644,6 +1747,121 @@ switch (true) {
             echo json_encode([
                 'success' => false,
                 'error' => 'Erreur lors de la récupération des particuliers: ' . $e->getMessage()
+            ]);
+        }
+        break;
+
+    // Création d'un particulier (avec vérification de doublon)
+    case $method === 'POST' && $path === '/particuliers/create':
+        try {
+            $raw = file_get_contents('php://input');
+            $data = json_decode($raw, true) ?? [];
+            
+            // Validation des champs requis
+            if (empty($data['nom'])) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Le nom est requis'
+                ]);
+                break;
+            }
+            
+            $pdo = getDbConnection();
+            
+            // Vérifier si un particulier avec le même nom et téléphone existe déjà
+            $checkQuery = "SELECT id FROM particuliers WHERE nom = :nom";
+            $params = [':nom' => $data['nom']];
+            
+            // Si le téléphone est fourni, l'inclure dans la vérification
+            if (!empty($data['telephone']) || !empty($data['gsm'])) {
+                $telephone = $data['telephone'] ?? $data['gsm'] ?? '';
+                $checkQuery .= " AND (gsm = :telephone OR gsm LIKE :telephone_like)";
+                $params[':telephone'] = $telephone;
+                $params[':telephone_like'] = '%' . $telephone . '%';
+            }
+            
+            $checkStmt = $pdo->prepare($checkQuery);
+            foreach ($params as $key => $value) {
+                $checkStmt->bindValue($key, $value);
+            }
+            $checkStmt->execute();
+            $existingParticulier = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Si le particulier existe déjà, retourner son ID
+            if ($existingParticulier) {
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Particulier existant trouvé',
+                    'id' => (int)$existingParticulier['id'],
+                    'existing' => true
+                ]);
+                break;
+            }
+            
+            // Sinon, créer un nouveau particulier
+            // Concaténer nom et prenom dans la colonne 'nom'
+            $nomComplet = $data['nom'];
+            if (!empty($data['prenom'])) {
+                $nomComplet = trim($data['nom'] . ' ' . $data['prenom']);
+            }
+            
+            $insertQuery = "INSERT INTO particuliers (
+                nom, gsm, adresse, date_naissance, 
+                profession, genre, numero_national, email, 
+                lieu_naissance, nationalite, etat_civil,
+                personne_contact, personne_contact_telephone, 
+                observations, created_at
+            ) VALUES (
+                :nom, :gsm, :adresse, :date_naissance,
+                :profession, :genre, :numero_national, :email,
+                :lieu_naissance, :nationalite, :etat_civil,
+                :personne_contact, :personne_contact_telephone,
+                :observations, NOW()
+            )";
+            
+            $insertStmt = $pdo->prepare($insertQuery);
+            $insertStmt->execute([
+                ':nom' => $nomComplet,
+                ':gsm' => $data['telephone'] ?? $data['gsm'] ?? null,
+                ':adresse' => $data['adresse'] ?? null,
+                ':date_naissance' => $data['date_naissance'] ?? null,
+                ':profession' => $data['profession'] ?? null,
+                ':genre' => $data['genre'] ?? null,
+                ':numero_national' => $data['numero_national'] ?? null,
+                ':email' => $data['email'] ?? null,
+                ':lieu_naissance' => $data['lieu_naissance'] ?? null,
+                ':nationalite' => $data['nationalite'] ?? 'Congolaise',
+                ':etat_civil' => $data['etat_civil'] ?? null,
+                ':personne_contact' => $data['personne_contact'] ?? null,
+                ':personne_contact_telephone' => $data['personne_contact_telephone'] ?? null,
+                ':observations' => $data['observations'] ?? null
+            ]);
+            
+            $particulierId = (int)$pdo->lastInsertId();
+            
+            // Log de la création
+            LogController::record(
+                $data['username'] ?? 'system',
+                'Création particulier',
+                ['particulier_id' => $particulierId, 'nom' => $data['nom']],
+                $_SERVER['REMOTE_ADDR'] ?? null,
+                $_SERVER['HTTP_USER_AGENT'] ?? null
+            );
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Particulier créé avec succès',
+                'id' => $particulierId,
+                'existing' => false
+            ]);
+            
+        } catch (Exception $e) {
+            error_log("Erreur création particulier: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur lors de la création du particulier: ' . $e->getMessage()
             ]);
         }
         break;
@@ -3382,7 +3600,15 @@ switch (true) {
             require_once __DIR__ . '/../controllers/AvisRechercheController.php';
             require_once __DIR__ . '/../controllers/LogController.php';
             
-            $data = json_decode(file_get_contents('php://input'), true);
+            // Gérer les données multipart (avec fichiers) ou JSON
+            if (!empty($_POST)) {
+                // Requête multipart (avec fichiers)
+                $data = $_POST;
+            } else {
+                // Requête JSON classique
+                $data = json_decode(file_get_contents('php://input'), true) ?? [];
+            }
+            
             $username = $data['username'] ?? 'system';
             
             $controller = new AvisRechercheController();
@@ -3394,11 +3620,11 @@ switch (true) {
                     $username,
                     'Émission avis de recherche',
                     json_encode([
-                        'cible_type' => $data['cible_type'],
-                        'cible_id' => $data['cible_id'],
-                        'motif' => $data['motif'],
+                        'cible_type' => $data['cible_type'] ?? null,
+                        'cible_id' => $data['cible_id'] ?? null,
+                        'motif' => $data['motif'] ?? null,
                         'niveau' => $data['niveau'] ?? 'moyen',
-                        'avis_id' => $result['id'],
+                        'avis_id' => $result['id'] ?? null,
                         'action' => 'create_avis_recherche'
                     ]),
                     $_SERVER['REMOTE_ADDR'] ?? '',
@@ -3879,7 +4105,11 @@ switch (true) {
                         WHEN c.type_dossier = 'particulier' THEN p.gsm
                         WHEN c.type_dossier = 'entreprise' THEN COALESCE(e.gsm, e.telephone_contact)
                         ELSE NULL
-                    END as telephone_contrevenant
+                    END as telephone_contrevenant,
+                    CASE 
+                        WHEN c.type_dossier = 'vehicule_plaque' THEN v.id
+                        ELSE NULL
+                    END as vehicule_id
                 FROM contraventions c
                 LEFT JOIN particuliers p ON c.type_dossier = 'particulier' AND c.dossier_id = p.id
                 LEFT JOIN entreprises e ON c.type_dossier = 'entreprise' AND c.dossier_id = e.id
@@ -4053,4 +4283,10 @@ switch (true) {
         echo json_encode(['status' => 'error', 'message' => 'Not Found', 'path' => $path, 'method' => $method]);
         break;
 }
+
+// Nettoyer et envoyer l'output buffer
+$output = ob_get_clean();
+// Supprimer tout ce qui n'est pas du JSON valide (warnings, notices, etc.)
+$output = preg_replace('/^[^{[]*/', '', $output);
+echo $output;
 ?>

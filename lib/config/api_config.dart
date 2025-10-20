@@ -158,4 +158,60 @@ class ApiConfig {
       return 'https://$_production/api/permis_temporaire_display.php?id=$permisId';
     }
   }
+
+  /// Construire l'URL complète pour un fichier dans le dossier uploads
+  /// Le chemin relatif doit être au format: 'uploads/subfolder/filename.ext'
+  static String getUploadUrl(String relativePath) {
+    // Supprimer le slash initial si présent
+    if (relativePath.startsWith('/')) {
+      relativePath = relativePath.substring(1);
+    }
+    
+    if (kIsWeb && Uri.base.host.contains('heaventech.net')) {
+      return 'https://${Uri.base.host}/api/$relativePath';
+    }
+    
+    if (kDebugMode) {
+      if (kIsWeb) {
+        return 'http://$_localhost/api/$relativePath';
+      }
+      
+      if (Platform.isAndroid) {
+        return 'http://$_androidEmulator/api/$relativePath';
+      }
+      
+      if (Platform.isIOS) {
+        return 'http://$_iosSimulator/api/$relativePath';
+      }
+      
+      return 'http://$_localhost/api/$relativePath';
+    } else {
+      return 'https://$_production/api/$relativePath';
+    }
+  }
+
+  /// URL pour la prévisualisation d'avis de recherche (affichage direct en HTML)
+  static String getAvisRechercheDisplayUrl(int avisId) {
+    if (kIsWeb && Uri.base.host.contains('heaventech.net')) {
+      return 'https://${Uri.base.host}/api/avis_recherche_display.php?id=$avisId';
+    }
+    
+    if (kDebugMode) {
+      if (kIsWeb) {
+        return 'http://$_localhost/api/avis_recherche_display.php?id=$avisId';
+      }
+      
+      if (Platform.isAndroid) {
+        return 'http://$_androidEmulator/api/avis_recherche_display.php?id=$avisId';
+      }
+      
+      if (Platform.isIOS) {
+        return 'http://$_iosSimulator/api/avis_recherche_display.php?id=$avisId';
+      }
+      
+      return 'http://$_localhost/api/avis_recherche_display.php?id=$avisId';
+    } else {
+      return 'https://$_production/api/avis_recherche_display.php?id=$avisId';
+    }
+  }
 }

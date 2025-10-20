@@ -79,12 +79,14 @@ class Database {
         } catch(PDOException $exception) {
             $error_msg = "Connection error: " . $exception->getMessage();
             
-            // En mode debug, afficher plus d'informations
+            // Logger l'erreur dans tous les cas (pas d'echo pour éviter de polluer le JSON)
+            error_log("Database connection error: " . $exception->getMessage());
+            
+            // En mode debug, inclure plus de détails dans l'exception
             if (Environment::isDebugMode()) {
-                echo $error_msg;
+                throw new Exception("Database connection failed: " . $exception->getMessage());
             } else {
-                // En production, logger l'erreur sans l'afficher
-                error_log("Database connection error: " . $exception->getMessage());
+                // En production, message générique
                 throw new Exception("Database connection failed");
             }
         }

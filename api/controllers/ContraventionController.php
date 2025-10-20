@@ -166,7 +166,8 @@ class ContraventionController extends BaseController {
             $this->createSimplePdf($html, $filepath, $contravention);
             
             // Update contravention record with PDF path (add column if needed)
-            $pdfUrl = '/api/uploads/contraventions/' . $filename;
+            // Retourner le chemin sans /api/ pour cohérence avec les avis de recherche
+            $pdfUrl = 'uploads/contraventions/' . $filename;
             
             // First, check if pdf_path column exists, if not add it
             try {

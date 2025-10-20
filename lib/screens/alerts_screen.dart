@@ -152,6 +152,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
     );
 
     try {
+      print('🚗 Recherche véhicule avec ID: $vehiculeId'); // Debug
       final apiClient = ApiClient(baseUrl: ApiConfig.baseUrl);
       final service = VehiculeService(apiClient: apiClient);
       final vehicule = await service.getVehiculeById(vehiculeId);
@@ -160,16 +161,19 @@ class _AlertsScreenState extends State<AlertsScreen> {
       Navigator.of(context).pop(); // Fermer le loader
 
       if (vehicule != null) {
+        print('✅ Véhicule trouvé: ${vehicule['plaque']}'); // Debug
         showDialog(
           context: context,
           builder: (context) => VehiculeDetailsModal(vehicule: vehicule),
         );
       } else {
+        print('❌ Véhicule non trouvé pour ID: $vehiculeId'); // Debug
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Véhicule introuvable')),
+          SnackBar(content: Text('Véhicule introuvable (ID: $vehiculeId)')),
         );
       }
     } catch (e) {
+      print('❌ Erreur lors de la récupération du véhicule: $e'); // Debug
       if (!mounted) return;
       Navigator.of(context).pop(); // Fermer le loader
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1140,7 +1144,13 @@ class _AlertsScreenState extends State<AlertsScreen> {
               ),
               TextButton.icon(
                 onPressed: () {
-                  final dossierId = contravention['dossier_id'];
+                  // Pour les véhicules, utiliser vehicule_id puis dossier_id comme fallback
+                  final dossierId = isVehicule 
+                      ? (contravention['vehicule_id'] ?? contravention['dossier_id'])
+                      : contravention['dossier_id'];
+                  
+                  print('🔍 Contravention type: ${contravention['type_dossier']}, dossier_id: ${contravention['dossier_id']}, vehicule_id: ${contravention['vehicule_id']}, utilisé: $dossierId'); // Debug
+                  
                   if (dossierId != null) {
                     final id = dossierId is int
                         ? dossierId
@@ -1151,8 +1161,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                       } else if (contravention['type_dossier'] ==
                           'particulier') {
                         _showParticulierDetails(id);
-                      } else if (contravention['type_dossier'] ==
-                          'vehicule_plaque') {
+                      } else if (isVehicule) {
                         _showVehiculeDetails(id);
                       }
                     }
