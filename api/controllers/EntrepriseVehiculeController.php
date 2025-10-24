@@ -239,12 +239,17 @@ class EntrepriseVehiculeController extends BaseController
 
             $stmt = $this->db->prepare("
                 SELECT 
-                    ev.*,
+                    vp.id,
                     vp.plaque,
                     vp.marque,
                     vp.modele,
                     vp.couleur,
-                    vp.numero_chassis
+                    vp.numero_chassis,
+                    vp.annee,
+                    vp.images,
+                    ev.date_assoc,
+                    ev.notes,
+                    ev.id as association_id
                 FROM entreprise_vehicule ev
                 INNER JOIN vehicule_plaque vp ON ev.vehicule_plaque_id = vp.id
                 WHERE ev.entreprise_id = :entreprise_id

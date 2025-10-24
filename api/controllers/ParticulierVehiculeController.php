@@ -240,12 +240,18 @@ class ParticulierVehiculeController extends BaseController
 
             $stmt = $this->db->prepare("
                 SELECT 
-                    pv.*,
+                    vp.id,
                     vp.plaque,
                     vp.marque,
                     vp.modele,
                     vp.couleur,
-                    vp.numero_chassis
+                    vp.numero_chassis,
+                    vp.annee,
+                    vp.images,
+                    pv.role,
+                    pv.date_assoc,
+                    pv.notes,
+                    pv.id as association_id
                 FROM particulier_vehicule pv
                 INNER JOIN vehicule_plaque vp ON pv.vehicule_plaque_id = vp.id
                 WHERE pv.particulier_id = :particulier_id

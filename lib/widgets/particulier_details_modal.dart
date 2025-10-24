@@ -9,6 +9,8 @@ import 'edit_contravention_modal.dart';
 import '../providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:toastification/toastification.dart';
+import 'vehicule_details_modal.dart';
+import 'assign_contravention_vehicule_modal.dart';
 
 class ParticulierDetailsModal extends StatefulWidget {
   final Map<String, dynamic> particulier;
@@ -248,7 +250,7 @@ class _ParticulierDetailsModalState extends State<ParticulierDetailsModal>
                           ),
                         ),
                         Text(
-                          '${widget.particulier['nom']} ${widget.particulier['prenom']}',
+                          widget.particulier['nom'] ?? '',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -390,6 +392,28 @@ class _ParticulierDetailsModalState extends State<ParticulierDetailsModal>
     }
   }
 
+  void _showVehiculeDetails(Map<String, dynamic> vehicule) {
+    showDialog(
+      context: context,
+      builder: (context) => VehiculeDetailsModal(
+        vehicule: vehicule,
+      ),
+    );
+  }
+
+  void _assignContraventionToVehicule(Map<String, dynamic> vehicule) {
+    showDialog(
+      context: context,
+      builder: (context) => AssignContraventionVehiculeModal(
+        vehicule: vehicule,
+        onSuccess: () {
+          // Recharger les véhicules si nécessaire
+          _loadVehicules();
+        },
+      ),
+    );
+  }
+
   List<Widget> _buildVehiculesSection() {
     return [
       const Divider(thickness: 2),
@@ -508,7 +532,13 @@ class _ParticulierDetailsModalState extends State<ParticulierDetailsModal>
                 ),
                 DataColumn(
                   label: Text(
-                    'Rôle',
+                    'Date association',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Actions',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
@@ -551,23 +581,45 @@ class _ParticulierDetailsModalState extends State<ParticulierDetailsModal>
                       ),
                     ),
                     DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          vehicule['role']?.toString() ?? 'Propriétaire',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context).colorScheme.primary,
+                      Text(
+                        _formatDate(vehicule['date_assoc']),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: () => _showVehiculeDetails(vehicule),
+                            icon: const Icon(Icons.info_outline, size: 18),
+                            tooltip: 'Voir détails',
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.blue[700],
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(32, 32),
+                              padding: const EdgeInsets.all(4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            onPressed: () => _assignContraventionToVehicule(vehicule),
+                            icon: const Icon(Icons.receipt_long, size: 18),
+                            tooltip: 'Assigner contravention',
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.orange[700],
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(32, 32),
+                              padding: const EdgeInsets.all(4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -736,14 +788,11 @@ class _ParticulierDetailsModalState extends State<ParticulierDetailsModal>
               const SizedBox(height: 8),
               _buildFormField('ID', widget.particulier['id']?.toString()),
               const SizedBox(height: 12),
-              _buildFormField('Nom', widget.particulier['nom'], isTitle: true),
+              _buildFormField('Nom complet', widget.particulier['nom'], isTitle: true),
               const SizedBox(height: 12),
-              _buildFormField('Prénom', widget.particulier['prenom'],
-                  isTitle: true),
+              _buildFormField('Date de naissance', _formatDate(widget.particulier['date_naissance'])),
               const SizedBox(height: 12),
-              _buildFormField('Âge', widget.particulier['age']?.toString()),
-              const SizedBox(height: 12),
-              _buildFormField('Sexe', widget.particulier['sexe']),
+              _buildFormField('Genre', widget.particulier['genre']),
             ],
           ),
         ),
@@ -754,7 +803,9 @@ class _ParticulierDetailsModalState extends State<ParticulierDetailsModal>
             children: [
               Text('Coordonnées', style: tt.titleMedium),
               const SizedBox(height: 8),
-              _buildFormField('Téléphone', widget.particulier['telephone']),
+              _buildFormField('Téléphone', widget.particulier['gsm']),
+              const SizedBox(height: 12),
+              _buildFormField('Email', widget.particulier['email']),
               const SizedBox(height: 12),
               _buildFormField('Adresse', widget.particulier['adresse']),
             ],
@@ -823,6 +874,8 @@ class _ParticulierDetailsModalState extends State<ParticulierDetailsModal>
   Widget _buildFormField(String label, String? value,
       {bool isTitle = false, bool isMultiline = false}) {
     final theme = Theme.of(context);
+    final displayValue = (value == null || value.isEmpty) ? 'N/A' : value;
+    final isNA = (value == null || value.isEmpty);
 
     return Container(
       width: double.infinity,
@@ -849,11 +902,14 @@ class _ParticulierDetailsModalState extends State<ParticulierDetailsModal>
           ),
           const SizedBox(height: 4),
           Text(
-            value ?? '',
+            displayValue,
             style: TextStyle(
               fontSize: isTitle ? 16 : 14,
               fontWeight: isTitle ? FontWeight.w600 : FontWeight.normal,
-              color: theme.colorScheme.onSurface,
+              color: isNA 
+                  ? theme.colorScheme.onSurfaceVariant.withOpacity(0.5)
+                  : theme.colorScheme.onSurface,
+              fontStyle: isNA ? FontStyle.italic : FontStyle.normal,
             ),
             maxLines: isMultiline ? null : 1,
             overflow: isMultiline ? null : TextOverflow.ellipsis,
@@ -869,7 +925,8 @@ class _ParticulierDetailsModalState extends State<ParticulierDetailsModal>
       final date = DateTime.parse(dateString);
       return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
     } catch (e) {
-      return dateString;
+      // Si le parsing échoue, retourner la chaîne vide pour afficher N/A
+      return '';
     }
   }
 

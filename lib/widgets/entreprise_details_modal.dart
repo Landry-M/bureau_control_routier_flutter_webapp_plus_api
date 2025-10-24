@@ -11,6 +11,8 @@ import '../services/api_client.dart';
 import '../services/notification_service.dart';
 import 'contravention_map_viewer.dart';
 import 'edit_contravention_modal.dart';
+import 'vehicule_details_modal.dart';
+import 'assign_contravention_vehicule_modal.dart';
 
 class EntrepriseDetailsModal extends StatefulWidget {
   final Map<String, dynamic> entreprise;
@@ -414,6 +416,28 @@ class _EntrepriseDetailsModalState extends State<EntrepriseDetailsModal>
     }
   }
 
+  void _showVehiculeDetails(Map<String, dynamic> vehicule) {
+    showDialog(
+      context: context,
+      builder: (context) => VehiculeDetailsModal(
+        vehicule: vehicule,
+      ),
+    );
+  }
+
+  void _assignContraventionToVehicule(Map<String, dynamic> vehicule) {
+    showDialog(
+      context: context,
+      builder: (context) => AssignContraventionVehiculeModal(
+        vehicule: vehicule,
+        onSuccess: () {
+          // Recharger les véhicules si nécessaire
+          _loadVehicules();
+        },
+      ),
+    );
+  }
+
   List<Widget> _buildVehiculesSection() {
     return [
       const Divider(thickness: 2),
@@ -536,6 +560,12 @@ class _EntrepriseDetailsModalState extends State<EntrepriseDetailsModal>
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
+                DataColumn(
+                  label: Text(
+                    'Actions',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
               ],
               rows: _vehicules.map((vehicule) {
                 return DataRow(
@@ -578,6 +608,42 @@ class _EntrepriseDetailsModalState extends State<EntrepriseDetailsModal>
                       Text(
                         _formatDate(vehicule['date_assoc']),
                         style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: () => _showVehiculeDetails(vehicule),
+                            icon: const Icon(Icons.info_outline, size: 18),
+                            tooltip: 'Voir détails',
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.blue[700],
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(32, 32),
+                              padding: const EdgeInsets.all(4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            onPressed: () => _assignContraventionToVehicule(vehicule),
+                            icon: const Icon(Icons.receipt_long, size: 18),
+                            tooltip: 'Assigner contravention',
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.orange[700],
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(32, 32),
+                              padding: const EdgeInsets.all(4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

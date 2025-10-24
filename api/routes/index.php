@@ -716,6 +716,71 @@ switch (true) {
             ]);
         }
         break;
+
+    // Récupérer le propriétaire d'un véhicule via la table particulier_vehicule
+    case $method === 'GET' && path_match('/vehicule/{id}/proprietaire', $path, $p):
+        try {
+            $vehiculeId = $p[0] ?? null;
+            if (!$vehiculeId || !is_numeric($vehiculeId)) {
+                throw new Exception('ID véhicule invalide');
+            }
+
+            // Connexion à la base de données
+            $database = new Database();
+            $db = $database->getConnection();
+            if (!$db) { 
+                throw new Exception('Échec de connexion à la base de données'); 
+            }
+
+            // Récupérer le propriétaire via la table particulier_vehicule avec JOIN sur particuliers
+            // On cherche l'association avec role = 'proprietaire' et la date la plus récente
+            $query = "SELECT p.*
+                      FROM particulier_vehicule pv
+                      INNER JOIN particuliers p ON pv.particulier_id = p.id
+                      WHERE pv.vehicule_plaque_id = :vehicule_id
+                        AND pv.role = 'proprietaire'
+                      ORDER BY pv.date_assoc DESC
+                      LIMIT 1";
+            
+            $stmt = $db->prepare($query);
+            $stmt->bindParam(':vehicule_id', $vehiculeId, PDO::PARAM_INT);
+            $stmt->execute();
+            
+            $proprietaire = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // Log de la consultation
+            LogController::record(
+                $_GET['username'] ?? 'system',
+                'Consultation propriétaire véhicule',
+                [
+                    'vehicule_id' => $vehiculeId,
+                    'proprietaire_trouve' => $proprietaire ? 'oui' : 'non'
+                ],
+                $_SERVER['REMOTE_ADDR'] ?? null,
+                $_SERVER['HTTP_USER_AGENT'] ?? null
+            );
+
+            if ($proprietaire) {
+                echo json_encode([
+                    'success' => true,
+                    'data' => $proprietaire
+                ]);
+            } else {
+                echo json_encode([
+                    'success' => true,
+                    'data' => null,
+                    'message' => 'Aucun propriétaire enregistré pour ce véhicule'
+                ]);
+            }
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'data' => null
+            ]);
+        }
+        break;
     
     // Association particulier-véhicule
     case $method === 'POST' && $path === '/particulier-vehicule/associer':
@@ -1237,16 +1302,19 @@ switch (true) {
             $searchPattern = '%' . $query . '%';
             $stmt = $db->prepare("
                 SELECT * FROM vehicule_plaque 
-                WHERE plaque LIKE :search 
-                   OR marque LIKE :search 
-                   OR modele LIKE :search 
-                   OR couleur LIKE :search
-                   OR proprietaire LIKE :search
-                   OR CAST(annee AS CHAR) LIKE :search
+                WHERE plaque LIKE ? 
+                   OR marque LIKE ? 
+                   OR modele LIKE ? 
+                   OR couleur LIKE ?
+                   OR numero_chassis LIKE ?
+                   OR CAST(annee AS CHAR) LIKE ?
                 ORDER BY id DESC 
                 LIMIT 50
             ");
-            $stmt->bindValue(':search', $searchPattern);
+            // Binder chaque occurrence du pattern de recherche
+            for ($i = 1; $i <= 6; $i++) {
+                $stmt->bindValue($i, $searchPattern);
+            }
             $stmt->execute();
             
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -2159,22 +2227,61 @@ switch (true) {
                 
                 // Handle file uploads for photos
                 $uploadedPhotos = [];
-                if (isset($_FILES['photos']) && is_array($_FILES['photos']['name'])) {
-                    $uploadDir = __DIR__ . '/../uploads/contraventions/';
-                    if (!is_dir($uploadDir)) {
-                        mkdir($uploadDir, 0755, true);
-                    }
-                    
-                    for ($i = 0; $i < count($_FILES['photos']['name']); $i++) {
-                        if ($_FILES['photos']['error'][$i] === UPLOAD_ERR_OK) {
-                            $fileName = 'contrav_' . time() . '_' . $i . '.' . pathinfo($_FILES['photos']['name'][$i], PATHINFO_EXTENSION);
-                            $filePath = $uploadDir . $fileName;
-                            
-                            if (move_uploaded_file($_FILES['photos']['tmp_name'][$i], $filePath)) {
-                                $uploadedPhotos[] = '/api/uploads/contraventions/' . $fileName;
+                $uploadDir = __DIR__ . '/../uploads/contraventions/';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                }
+                
+                // Log pour debug
+                error_log("FILES received: " . print_r($_FILES, true));
+                
+                // Traiter TOUS les fichiers reçus, peu importe leur nom de clé
+                // Cela supporte: photo_0, photo_1, photos[], images[], etc.
+                foreach ($_FILES as $fileKey => $fileData) {
+                    // Vérifier si la clé ressemble à un fichier de photo ou image
+                    // (contient 'photo' ou 'image')
+                    if (stripos($fileKey, 'photo') !== false || stripos($fileKey, 'image') !== false) {
+                        if (is_array($fileData['name'])) {
+                            // Format tableau (photos[])
+                            error_log("Processing array format for key: $fileKey");
+                            for ($i = 0; $i < count($fileData['name']); $i++) {
+                                if ($fileData['error'][$i] === UPLOAD_ERR_OK) {
+                                    $extension = pathinfo($fileData['name'][$i], PATHINFO_EXTENSION);
+                                    $fileName = 'contrav_' . uniqid() . '_' . time() . '_' . $i . '.' . $extension;
+                                    $filePath = $uploadDir . $fileName;
+                                    
+                                    if (move_uploaded_file($fileData['tmp_name'][$i], $filePath)) {
+                                        $uploadedPhotos[] = 'uploads/contraventions/' . $fileName;
+                                        error_log("Photo uploaded (array): " . $fileName);
+                                    } else {
+                                        error_log("Failed to upload: " . $fileData['name'][$i]);
+                                    }
+                                }
+                            }
+                        } else {
+                            // Format fichier unique (photo_0, photo_1, etc.)
+                            if ($fileData['error'] === UPLOAD_ERR_OK) {
+                                $extension = pathinfo($fileData['name'], PATHINFO_EXTENSION);
+                                $fileName = 'contrav_' . uniqid() . '_' . time() . '.' . $extension;
+                                $filePath = $uploadDir . $fileName;
+                                
+                                if (move_uploaded_file($fileData['tmp_name'], $filePath)) {
+                                    $uploadedPhotos[] = 'uploads/contraventions/' . $fileName;
+                                    error_log("Photo uploaded (single): " . $fileName . " from key: " . $fileKey);
+                                } else {
+                                    error_log("Failed to upload: " . $fileData['name'] . " from key: " . $fileKey);
+                                }
+                            } else {
+                                error_log("Upload error for key $fileKey: " . $fileData['error']);
                             }
                         }
                     }
+                }
+                
+                error_log("Total photos uploaded: " . count($uploadedPhotos));
+                
+                if (count($uploadedPhotos) === 0 && !empty($_FILES)) {
+                    error_log("WARNING: Files were sent but none were uploaded. Check file keys and errors.");
                 }
                 
                 $data['photos'] = implode(',', $uploadedPhotos);

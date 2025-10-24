@@ -16,18 +16,20 @@ class ParticulierController extends BaseController {
      */
     public function create($data) {
         try {
-            $query = "INSERT INTO {$this->table} (nom, prenom, date_naissance, lieu_naissance, adresse, telephone, email, numero_carte_identite, created_at) 
-                     VALUES (:nom, :prenom, :date_naissance, :lieu_naissance, :adresse, :telephone, :email, :numero_carte_identite, NOW())";
+            $query = "INSERT INTO {$this->table} (nom, date_naissance, lieu_naissance, adresse, gsm, email, numero_national, created_at) 
+                     VALUES (:nom, :date_naissance, :lieu_naissance, :adresse, :gsm, :email, :numero_national, NOW())";
             
             $stmt = $this->db->prepare($query);
+            $gsm = $data['gsm'] ?? $data['telephone'] ?? null;
+            $numeroNational = $data['numero_national'] ?? $data['numero_carte_identite'] ?? null;
+            
             $stmt->bindParam(':nom', $data['nom']);
-            $stmt->bindParam(':prenom', $data['prenom']);
             $stmt->bindParam(':date_naissance', $data['date_naissance']);
             $stmt->bindParam(':lieu_naissance', $data['lieu_naissance']);
             $stmt->bindParam(':adresse', $data['adresse']);
-            $stmt->bindParam(':telephone', $data['telephone']);
+            $stmt->bindParam(':gsm', $gsm);
             $stmt->bindParam(':email', $data['email']);
-            $stmt->bindParam(':numero_carte_identite', $data['numero_carte_identite']);
+            $stmt->bindParam(':numero_national', $numeroNational);
             
             if ($stmt->execute()) {
                 return [
@@ -57,26 +59,27 @@ class ParticulierController extends BaseController {
         try {
             $query = "UPDATE {$this->table} SET 
                      nom = :nom, 
-                     prenom = :prenom, 
                      date_naissance = :date_naissance, 
                      lieu_naissance = :lieu_naissance, 
                      adresse = :adresse,
-                     telephone = :telephone,
+                     gsm = :gsm,
                      email = :email,
-                     numero_carte_identite = :numero_carte_identite,
+                     numero_national = :numero_national,
                      updated_at = NOW()
                      WHERE id = :id";
             
             $stmt = $this->db->prepare($query);
+            $gsm = $data['gsm'] ?? $data['telephone'] ?? null;
+            $numeroNational = $data['numero_national'] ?? $data['numero_carte_identite'] ?? null;
+            
             $stmt->bindParam(':id', $id);
             $stmt->bindParam(':nom', $data['nom']);
-            $stmt->bindParam(':prenom', $data['prenom']);
             $stmt->bindParam(':date_naissance', $data['date_naissance']);
             $stmt->bindParam(':lieu_naissance', $data['lieu_naissance']);
             $stmt->bindParam(':adresse', $data['adresse']);
-            $stmt->bindParam(':telephone', $data['telephone']);
+            $stmt->bindParam(':gsm', $gsm);
             $stmt->bindParam(':email', $data['email']);
-            $stmt->bindParam(':numero_carte_identite', $data['numero_carte_identite']);
+            $stmt->bindParam(':numero_national', $numeroNational);
             
             if ($stmt->execute()) {
                 return [
@@ -157,15 +160,22 @@ class ParticulierController extends BaseController {
             // Construire la requête de mise à jour
             $updateFields = [
                 'nom = :nom',
-                'prenom = :prenom',
-                'sexe = :sexe',
                 'gsm = :gsm',
                 'adresse = :adresse',
                 'numero_permis = :numero_permis',
-                'categorie_permis = :categorie_permis',
                 'observations = :observations',
                 'updated_at = NOW()'
             ];
+
+            // Ajouter genre/sexe si fourni
+            if (!empty($data['sexe']) || !empty($data['genre'])) {
+                $updateFields[] = 'genre = :genre';
+            }
+
+            // Ajouter categorie_permis si fourni
+            if (!empty($data['categorie_permis'])) {
+                $updateFields[] = 'categorie_permis = :categorie_permis';
+            }
 
             // Ajouter les dates si elles sont fournies
             if (!empty($data['date_naissance'])) {
@@ -188,13 +198,21 @@ class ParticulierController extends BaseController {
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':id', $id);
             $stmt->bindParam(':nom', $data['nom']);
-            $stmt->bindParam(':prenom', $data['prenom']);
-            $stmt->bindParam(':sexe', $data['sexe']);
             $stmt->bindParam(':gsm', $data['gsm']);
             $stmt->bindParam(':adresse', $data['adresse']);
             $stmt->bindParam(':numero_permis', $data['numero_permis']);
-            $stmt->bindParam(':categorie_permis', $data['categorie_permis']);
             $stmt->bindParam(':observations', $data['observations']);
+
+            // Bind genre/sexe si fourni
+            if (!empty($data['sexe']) || !empty($data['genre'])) {
+                $genre = $data['genre'] ?? $data['sexe'];
+                $stmt->bindParam(':genre', $genre);
+            }
+
+            // Bind categorie_permis si fourni
+            if (!empty($data['categorie_permis'])) {
+                $stmt->bindParam(':categorie_permis', $data['categorie_permis']);
+            }
 
             // Bind des dates si elles sont fournies
             if (!empty($data['date_naissance'])) {

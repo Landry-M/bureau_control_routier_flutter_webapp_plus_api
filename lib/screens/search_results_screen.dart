@@ -15,6 +15,11 @@ import '../widgets/emettre_avis_recherche_modal.dart';
 import '../widgets/associer_vehicule_modal.dart';
 import '../widgets/entreprise_details_modal.dart';
 import '../widgets/assign_contravention_entreprise_modal.dart';
+import '../widgets/vehicule_actions_modal.dart';
+import '../widgets/assign_contravention_vehicule_modal.dart';
+import '../widgets/transfert_proprietaire_modal.dart';
+import '../widgets/retirer_plaque_modal.dart';
+import '../widgets/plaque_temporaire_modal.dart';
 
 class SearchResultsScreen extends StatefulWidget {
   const SearchResultsScreen(
@@ -188,6 +193,13 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 icon: const Icon(Icons.visibility),
                 tooltip: 'Voir détails',
               ),
+              // Bouton Voir propriétaire (uniquement pour les véhicules)
+              if (type == 'vehicule')
+                IconButton(
+                  icon: const Icon(Icons.person_search, color: Colors.blue),
+                  tooltip: 'Voir propriétaire',
+                  onPressed: () => _showVoirProprietaireModal(itemData),
+                ),
               // Bouton Actions supplémentaires (selon le type)
               if (_shouldShowActionsButton(type))
                 _buildActionsButton(type, itemData),
@@ -223,6 +235,11 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             onPressed: () => _showEntityDetails('vehicule', item),
             icon: const Icon(Icons.visibility),
             tooltip: 'Voir détails',
+          ),
+          IconButton(
+            icon: const Icon(Icons.person_search, color: Colors.blue),
+            tooltip: 'Voir propriétaire',
+            onPressed: () => _showVoirProprietaireModal(item),
           ),
           _buildActionsButton('vehicule', item),
         ],
@@ -377,15 +394,17 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         );
         break;
       case 'vehicule':
-        // Actions véhicule à implémenter
-        toastification.show(
+        showDialog(
           context: context,
-          type: ToastificationType.info,
-          style: ToastificationStyle.fillColored,
-          title: const Text('Information'),
-          description: const Text('Actions véhicule à implémenter'),
-          alignment: Alignment.topRight,
-          autoCloseDuration: const Duration(seconds: 3),
+          builder: (context) => VehiculeActionsModal(
+            vehicule: data,
+            onSanctionner: () => _showSanctionnerVehiculeModal(data),
+            onChangerProprietaire: () => _showChangerProprietaireModal(data),
+            onRetirerVehicule: () => _showRetirerVehiculeModal(data),
+            onRetirerPlaque: () => _showRetirerPlaqueModal(data),
+            onPlaqueTemporaire: () => _showPlaqueTemporaireModal(data),
+            onEmettreAvis: () => _showEmettreAvisVehiculeModal(data),
+          ),
         );
         break;
       default:
@@ -527,6 +546,279 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         },
       ),
     );
+  }
+
+  // Méthodes pour les actions véhicule
+  void _showSanctionnerVehiculeModal(Map<String, dynamic> vehicule) {
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
+      context: context,
+      builder: (context) => AssignContraventionVehiculeModal(
+        vehicule: vehicule,
+        onSuccess: () {
+          toastification.show(
+            context: context,
+            type: ToastificationType.success,
+            style: ToastificationStyle.fillColored,
+            title: const Text('Succès'),
+            description: const Text('Contravention assignée avec succès'),
+            alignment: Alignment.topRight,
+            autoCloseDuration: const Duration(seconds: 3),
+          );
+          _load(); // Rafraîchir les résultats
+        },
+      ),
+    );
+  }
+
+  void _showChangerProprietaireModal(Map<String, dynamic> vehicule) {
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
+      context: context,
+      builder: (context) => TransfertProprietaireModal(
+        vehicule: vehicule,
+      ),
+    ).then((result) {
+      if (result == true) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Succès'),
+          description: const Text('Propriétaire changé avec succès'),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 3),
+        );
+        _load(); // Rafraîchir les résultats
+      }
+    });
+  }
+
+  void _showRetirerVehiculeModal(Map<String, dynamic> vehicule) {
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Retirer le véhicule'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Êtes-vous sûr de vouloir retirer ce véhicule de la circulation ?',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Plaque: ${vehicule['plaque'] ?? 'N/A'}',
+              style: const TextStyle(color: Colors.grey),
+            ),
+            Text(
+              'Véhicule: ${vehicule['marque'] ?? ''} ${vehicule['modele'] ?? ''}',
+              style: const TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.warning, color: Colors.orange, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Cette action marquera le véhicule comme hors circulation.',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              // Appeler l'API pour retirer le véhicule
+              try {
+                final response = await _vehiculeService.retirerVehicule(
+                  int.parse(vehicule['id'].toString()),
+                );
+                if (response['success'] == true) {
+                  toastification.show(
+                    context: context,
+                    type: ToastificationType.success,
+                    style: ToastificationStyle.fillColored,
+                    title: const Text('Succès'),
+                    description: const Text('Véhicule retiré de la circulation'),
+                    alignment: Alignment.topRight,
+                    autoCloseDuration: const Duration(seconds: 3),
+                  );
+                  _load(); // Rafraîchir les résultats
+                }
+              } catch (e) {
+                toastification.show(
+                  context: context,
+                  type: ToastificationType.error,
+                  style: ToastificationStyle.fillColored,
+                  title: const Text('Erreur'),
+                  description: Text('Erreur: ${e.toString()}'),
+                  alignment: Alignment.topRight,
+                  autoCloseDuration: const Duration(seconds: 4),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Retirer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRetirerPlaqueModal(Map<String, dynamic> vehicule) {
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
+      context: context,
+      builder: (context) => RetirerPlaqueModal(
+        vehicule: vehicule,
+      ),
+    ).then((result) {
+      if (result == true) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Succès'),
+          description: const Text('Plaque retirée avec succès'),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 3),
+        );
+        _load(); // Rafraîchir les résultats
+      }
+    });
+  }
+
+  void _showPlaqueTemporaireModal(Map<String, dynamic> vehicule) {
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
+      context: context,
+      builder: (context) => PlaqueTemporaireModal(
+        vehicule: vehicule,
+      ),
+    ).then((result) {
+      if (result == true) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.success,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Succès'),
+          description: const Text('Plaque temporaire attribuée avec succès'),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 3),
+        );
+        _load(); // Rafraîchir les résultats
+      }
+    });
+  }
+
+  void _showEmettreAvisVehiculeModal(Map<String, dynamic> vehicule) {
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+    showDialog(
+      context: context,
+      builder: (context) => EmettreAvisRechercheModal(
+        cible: vehicule,
+        cibleType: 'vehicule_plaque',
+        onSuccess: () {
+          toastification.show(
+            context: context,
+            type: ToastificationType.success,
+            style: ToastificationStyle.fillColored,
+            title: const Text('Succès'),
+            description: const Text('Avis de recherche émis avec succès'),
+            alignment: Alignment.topRight,
+            autoCloseDuration: const Duration(seconds: 3),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showVoirProprietaireModal(Map<String, dynamic> vehicule) async {
+    Navigator.of(context).pop(); // Fermer la modal d'actions
+
+    // Afficher un indicateur de chargement
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      final vehiculeId = int.parse(vehicule['id'].toString());
+      
+      // Récupérer les informations du propriétaire via la table particulier_vehicule
+      final proprietaire = await _vehiculeService.getProprietaireVehicule(vehiculeId);
+
+      if (mounted) {
+        // Fermer l'indicateur de chargement
+        Navigator.of(context).pop();
+      }
+
+      if (proprietaire != null && mounted) {
+        // Afficher la modal avec les informations du propriétaire
+        showDialog(
+          context: context,
+          builder: (context) => ParticulierDetailsModal(particulier: proprietaire),
+        );
+      } else if (mounted) {
+        // Aucun propriétaire trouvé
+        toastification.show(
+          context: context,
+          type: ToastificationType.info,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Information'),
+          description: const Text(
+            'Aucun propriétaire enregistré pour ce véhicule dans la base de données.',
+          ),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        // Fermer l'indicateur de chargement
+        Navigator.of(context).pop();
+
+        // Afficher l'erreur
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          style: ToastificationStyle.fillColored,
+          title: const Text('Erreur'),
+          description: Text(
+            'Impossible de récupérer les informations du propriétaire: ${e.toString()}',
+          ),
+          alignment: Alignment.topRight,
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+      }
+    }
   }
 
   void _showDetails(Map<String, dynamic> item) {

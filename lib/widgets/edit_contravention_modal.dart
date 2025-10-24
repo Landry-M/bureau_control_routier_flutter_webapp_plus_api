@@ -208,7 +208,10 @@ class _EditContraventionModalState extends State<EditContraventionModal> {
       setState(() {
         _latitude = result['latitude'];
         _longitude = result['longitude'];
-        _lieuCtrl.text = result['address'];
+        // Afficher l'adresse dans le champ de texte pour que l'utilisateur puisse l'enrichir
+        if (result['address'] != null) {
+          _lieuCtrl.text = result['address'];
+        }
       });
     }
   }

@@ -1007,11 +1007,14 @@ class _LocationMapDialogState extends State<_LocationMapDialog> {
 
   @override
   void dispose() {
-    _mapControllerCompleter.future.then((controller) {
-      controller.dispose();
-    }).catchError((_) {
-      // Contrôleur pas encore initialisé
-    });
+    // Disposer le contrôleur de manière asynchrone si complété
+    if (_mapControllerCompleter.isCompleted) {
+      _mapControllerCompleter.future.then((controller) {
+        controller.dispose();
+      }).catchError((_) {
+        // Contrôleur pas encore initialisé
+      });
+    }
     super.dispose();
   }
 

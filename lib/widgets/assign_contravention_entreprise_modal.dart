@@ -1,11 +1,11 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import '../services/api_client.dart';
 import '../config/api_config.dart';
 import '../services/notification_service.dart';
+import '../utils/image_utils.dart';
 import 'contravention_preview_modal.dart';
 import 'location_picker_dialog.dart';
 
@@ -58,8 +58,7 @@ class _AssignContraventionEntrepriseModalState
   double? _longitude;
 
   // Images de contravention
-  final List<XFile> _selectedImages = [];
-  final ImagePicker _imagePicker = ImagePicker();
+  List<XFile> _selectedImages = [];
 
   @override
   void dispose() {
@@ -93,15 +92,10 @@ class _AssignContraventionEntrepriseModalState
         'longitude': _longitude?.toString() ?? '',
       };
 
-      // Préparer les fichiers images
+      // Préparer les fichiers images avec ImageUtils (comme les avis de recherche SOS)
       final List<http.MultipartFile> imageFiles = [];
-      for (int i = 0; i < _selectedImages.length; i++) {
-        final image = _selectedImages[i];
-        final multipartFile = await http.MultipartFile.fromPath(
-          'photos',
-          image.path,
-          filename: 'contrav_${DateTime.now().millisecondsSinceEpoch}_$i.${image.path.split('.').last}',
-        );
+      for (final image in _selectedImages) {
+        final multipartFile = await ImageUtils.createMultipartFile(image, 'images[]');
         imageFiles.add(multipartFile);
       }
 
@@ -155,7 +149,10 @@ class _AssignContraventionEntrepriseModalState
       setState(() {
         _latitude = result['latitude'];
         _longitude = result['longitude'];
-        _cLieuCtrl.text = result['address'];
+        // Afficher l'adresse dans le champ de texte pour que l'utilisateur puisse l'enrichir
+        if (result['address'] != null) {
+          _cLieuCtrl.text = result['address'];
+        }
       });
     }
   }
@@ -421,131 +418,70 @@ class _AssignContraventionEntrepriseModalState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Icon(Icons.camera_alt, size: 20),
-            const SizedBox(width: 8),
-            const Text(
-              'Photos de la contravention',
-              style: TextStyle(fontWeight: FontWeight.w500),
-            ),
-            const Spacer(),
-            TextButton.icon(
-              onPressed: _submitting ? null : _pickImages,
-              icon: const Icon(Icons.add_a_photo, size: 18),
-              label: const Text('Ajouter'),
-            ),
-          ],
+        ElevatedButton.icon(
+          onPressed: _submitting ? null : _pickImages,
+          icon: const Icon(Icons.add_photo_alternate),
+          label: const Text('Ajouter des images'),
         ),
-        const SizedBox(height: 8),
-        
-        if (_selectedImages.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Column(
-              children: [
-                Icon(Icons.add_photo_alternate, size: 48, color: Colors.grey),
-                SizedBox(height: 8),
-                Text(
-                  'Aucune photo sélectionnée',
-                  style: TextStyle(color: Colors.grey),
-                ),
-                Text(
-                  'Appuyez sur "Ajouter" pour sélectionner des photos',
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-              ],
-            ),
-          )
-        else
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _selectedImages.asMap().entries.map((entry) {
-              final index = entry.key;
-              final image = entry.value;
-              return _buildImageThumbnail(image, index);
-            }).toList(),
+        if (_selectedImages.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _buildThumbnails(
+            _selectedImages,
+            (f) => setState(() => _selectedImages.remove(f)),
           ),
+        ],
       ],
     );
   }
 
-  Widget _buildImageThumbnail(XFile image, int index) {
-    return Stack(
-      children: [
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.file(
-              File(image.path),
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return const Icon(Icons.error, color: Colors.red);
-              },
-            ),
-          ),
-        ),
-        Positioned(
-          top: 2,
-          right: 2,
-          child: GestureDetector(
-            onTap: () => _removeImage(index),
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.close,
-                color: Colors.white,
-                size: 18,
+  Widget _buildThumbnails(List<XFile> files, void Function(XFile) onRemove) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: files.map((f) {
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 90,
+                height: 90,
+                child: ImageUtils.buildImageWidget(f, fit: BoxFit.cover),
               ),
             ),
-          ),
-        ),
-      ],
+            Positioned(
+              top: -8,
+              right: -8,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => onRemove(f),
+                  borderRadius: BorderRadius.circular(12),
+                  child: const CircleAvatar(
+                    radius: 12,
+                    backgroundColor: Colors.black54,
+                    child: Icon(Icons.close, size: 14, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      }).toList(),
     );
   }
 
   Future<void> _pickImages() async {
     try {
-      final List<XFile> images = await _imagePicker.pickMultiImage(
-        maxWidth: 1920,
-        maxHeight: 1080,
-        imageQuality: 85,
-      );
-      
+      final images = await ImagePicker().pickMultiImage();
       if (images.isNotEmpty) {
-        setState(() {
-          _selectedImages.addAll(images);
-        });
+        setState(() => _selectedImages.addAll(images));
       }
     } catch (e) {
       if (mounted) {
-        String errorMessage = e.toString();
-        if (errorMessage.startsWith('Exception: ')) {
-          errorMessage = errorMessage.substring(11);
-        }
-        NotificationService.error(context, 'Erreur lors de la sélection des images: $errorMessage');
+        NotificationService.error(context, 'Erreur lors de la sélection: $e');
       }
     }
-  }
-
-  void _removeImage(int index) {
-    setState(() {
-      _selectedImages.removeAt(index);
-    });
   }
 }

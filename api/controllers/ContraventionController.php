@@ -48,8 +48,12 @@ class ContraventionController extends BaseController {
             $stmt->bindParam(':description', $data['description']);
             $stmt->bindParam(':reference_loi', $data['reference_loi']);
             $stmt->bindParam(':amende', $data['amende']);
-            $payed = $data['payed'] ?? '0';
+            
+            // Standardiser la valeur 'payed' : convertir '1'/'0' en 'oui'/'non'
+            $payedValue = $data['payed'] ?? '0';
+            $payed = ($payedValue === '1' || $payedValue === 1 || $payedValue === 'oui' || $payedValue === true) ? 'oui' : 'non';
             $stmt->bindParam(':payed', $payed);
+            
             $stmt->bindParam(':photos', $data['photos']);
             
             // Gérer les coordonnées géographiques
@@ -377,10 +381,13 @@ class ContraventionController extends BaseController {
      */
     public function updateStatus($id, $statut) {
         try {
+            // Standardiser la valeur 'payed' : convertir '1'/'0' en 'oui'/'non'
+            $payedValue = ($statut === '1' || $statut === 1 || $statut === 'oui' || $statut === true) ? 'oui' : 'non';
+            
             $query = "UPDATE {$this->table} SET payed = :statut WHERE id = :id";
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':id', $id);
-            $stmt->bindParam(':statut', $statut);
+            $stmt->bindParam(':statut', $payedValue);
             
             if ($stmt->execute()) {
                 return [
@@ -470,7 +477,9 @@ class ContraventionController extends BaseController {
             $stmt->bindParam(':reference_loi', $data['reference_loi']);
             $stmt->bindParam(':amende', $data['amende']);
             
-            $payed = $data['payed'] ?? '0';
+            // Standardiser la valeur 'payed' : convertir '1'/'0' en 'oui'/'non'
+            $payedValue = $data['payed'] ?? '0';
+            $payed = ($payedValue === '1' || $payedValue === 1 || $payedValue === 'oui' || $payedValue === true) ? 'oui' : 'non';
             $stmt->bindParam(':payed', $payed);
             
             // Gérer les coordonnées géographiques

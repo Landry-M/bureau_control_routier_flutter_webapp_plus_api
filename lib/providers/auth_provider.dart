@@ -30,11 +30,14 @@ class AuthProvider extends ChangeNotifier {
   // Gestion de l'inactivité
   Timer? _inactivityCheckTimer;
   DateTime? _lastActivityTime;
-  static const Duration inactivityTimeout = Duration(hours: 1);
+  static const Duration inactivityTimeout = Duration(minutes: 30);
+  static const Duration warningBeforeTimeout = Duration(minutes: 5); // Avertir 5 min avant
   
   // Callback appelé si l'utilisateur est hors horaires ou inactif
   Function()? onScheduleViolation;
   Function()? onInactivityTimeout;
+  Function(int minutesRemaining)? onInactivityWarning;
+  bool _warningShown = false; // Pour éviter d'afficher l'avertissement plusieurs fois
 
   String? get token => _token;
   String get role => _role;
@@ -303,6 +306,7 @@ class AuthProvider extends ChangeNotifier {
     }
     
     _lastActivityTime = DateTime.now();
+    _warningShown = false; // Réinitialiser le flag d'avertissement
     debugPrint('Activité utilisateur enregistrée: ${_lastActivityTime}');
   }
   
@@ -317,12 +321,24 @@ class AuthProvider extends ChangeNotifier {
     
     debugPrint('Vérification inactivité: ${inactiveDuration.inMinutes} minutes');
     
+    // Vérifier si le timeout est atteint
     if (inactiveDuration >= inactivityTimeout) {
       // L'utilisateur est inactif depuis trop longtemps
       debugPrint('Session expirée par inactivité (${inactiveDuration.inMinutes} minutes)');
       
       if (onInactivityTimeout != null) {
         onInactivityTimeout!();
+      }
+    }
+    // Vérifier si on doit afficher l'avertissement
+    else if (!_warningShown && inactiveDuration >= (inactivityTimeout - warningBeforeTimeout)) {
+      final minutesRemaining = inactivityTimeout.inMinutes - inactiveDuration.inMinutes;
+      debugPrint('Avertissement inactivité: $minutesRemaining minutes restantes');
+      
+      _warningShown = true;
+      
+      if (onInactivityWarning != null) {
+        onInactivityWarning!(minutesRemaining);
       }
     }
   }

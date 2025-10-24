@@ -12,6 +12,8 @@ import '../utils/date_time_picker_theme.dart';
 import '../services/notification_service.dart';
 import 'contravention_map_viewer.dart';
 import 'edit_contravention_modal.dart';
+import 'particulier_details_modal.dart';
+import 'assign_contravention_particulier_modal.dart';
 class VehiculeDetailsModal extends StatefulWidget {
   final Map<String, dynamic> vehicule;
 
@@ -259,16 +261,6 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
   }
 
   Future<void> _loadProprietaire() async {
-    // Vérifier si le véhicule a un conducteur_id
-    final conducteurId = widget.vehicule['conducteur_id'];
-    if (conducteurId == null) {
-      setState(() {
-        _loadingProprietaire = false;
-        _proprietaire = null;
-      });
-      return;
-    }
-
     setState(() {
       _loadingProprietaire = true;
       _errorProprietaire = null;
@@ -277,25 +269,29 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
     try {
       final username = context.read<AuthProvider>().username;
       final api = ApiClient(baseUrl: ApiConfig.baseUrl);
-      final response = await api.get('/particulier/$conducteurId?username=$username');
+      final response = await api.get('/vehicule/${widget.vehicule['id']}/proprietaire?username=$username');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        setState(() {
-          _proprietaire = data['data'];
-        });
+        if (data['success'] == true && data['data'] != null) {
+          setState(() {
+            _proprietaire = data['data'];
+          });
+        } else {
+          setState(() {
+            _proprietaire = null;
+          });
+        }
       } else {
         setState(() {
-          _errorProprietaire = 'Erreur lors du chargement du propriétaire';
+          _errorProprietaire = null; // Pas d'erreur si pas de propriétaire
+          _proprietaire = null;
         });
       }
     } catch (e) {
-      String errorMessage = e.toString();
-      if (errorMessage.startsWith('Exception: ')) {
-        errorMessage = errorMessage.substring(11);
-      }
       setState(() {
-        _errorProprietaire = errorMessage;
+        _errorProprietaire = null; // Ignorer l'erreur si pas de propriétaire
+        _proprietaire = null;
       });
     } finally {
       setState(() {
@@ -517,7 +513,9 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
   }
 
   Widget _buildFormField(String label, dynamic value, {bool isTitle = false}) {
-    final displayValue = value?.toString() ?? 'N/A';
+    final valueStr = value?.toString() ?? '';
+    final displayValue = (valueStr.isEmpty) ? 'N/A' : valueStr;
+    final isNA = valueStr.isEmpty;
     final isMultiline = label.toLowerCase().contains('observation');
 
     return Container(
@@ -549,7 +547,10 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
             style: TextStyle(
               fontSize: isTitle ? 16 : 14,
               fontWeight: isTitle ? FontWeight.w600 : FontWeight.normal,
-              color: Theme.of(context).colorScheme.onSurface,
+              color: isNA
+                  ? Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5)
+                  : Theme.of(context).colorScheme.onSurface,
+              fontStyle: isNA ? FontStyle.italic : FontStyle.normal,
             ),
             maxLines: isMultiline ? null : 1,
             overflow:
@@ -745,7 +746,7 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
           ),
 
           // Informations du propriétaire si disponible
-          if (widget.vehicule['conducteur_id'] != null) ..._buildProprietaireSection(),
+          ..._buildProprietaireSection(),
           
           // Informations de l'entreprise propriétaire si disponible
           ..._buildProprietaireEntrepriseSection(),
@@ -755,6 +756,11 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
   }
 
   List<Widget> _buildProprietaireSection() {
+    // N'afficher la section que si loading ou si propriétaire trouvé
+    if (!_loadingProprietaire && _proprietaire == null) {
+      return [];
+    }
+
     return [
       const SizedBox(height: 24),
       const Divider(thickness: 2),
@@ -784,27 +790,6 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
             child: CircularProgressIndicator(),
           ),
         )
-      else if (_errorProprietaire != null)
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.red.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.red.shade300),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.error_outline, color: Colors.red.shade600),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  _errorProprietaire!,
-                  style: TextStyle(color: Colors.red.shade600),
-                ),
-              ),
-            ],
-          ),
-        )
       else if (_proprietaire != null)
         Container(
           width: double.infinity,
@@ -815,66 +800,140 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: DataTable(
-              columnSpacing: 16,
-              horizontalMargin: 16,
+              columnSpacing: 12,
+              horizontalMargin: 12,
               headingRowColor: MaterialStateProperty.all(
                 Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.5),
               ),
-              dataRowMaxHeight: 60,
+              dataRowMaxHeight: 56,
               columns: const [
                 DataColumn(
                   label: Text(
-                    'Champ',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    'Nom',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
                 DataColumn(
                   label: Text(
-                    'Valeur',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    'Téléphone',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Email',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Adresse',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Actions',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
               ],
               rows: [
-                _buildProprietaireRow('ID', _proprietaire!['id']?.toString()),
-                _buildProprietaireRow('Nom', _proprietaire!['nom']),
-                _buildProprietaireRow('Téléphone', _proprietaire!['gsm']),
-                _buildProprietaireRow('Email', _proprietaire!['email']),
-                _buildProprietaireRow('Adresse', _proprietaire!['adresse']),
-                _buildProprietaireRow('N° Permis', _proprietaire!['numero_permis']),
-                _buildProprietaireRow(
-                  'Permis - Émission',
-                  _formatDate(_proprietaire!['permis_date_emission']),
+                DataRow(
+                  cells: [
+                    DataCell(
+                      Text(
+                        _proprietaire!['nom']?.toString() ?? 'N/A',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        _proprietaire!['gsm']?.toString() ?? 'N/A',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        _proprietaire!['email']?.toString() ?? 'N/A',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        _proprietaire!['adresse']?.toString() ?? 'N/A',
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: () => _showProprietaireDetails(_proprietaire!),
+                            icon: const Icon(Icons.info_outline, size: 18),
+                            tooltip: 'Voir détails',
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.blue[700],
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(32, 32),
+                              padding: const EdgeInsets.all(4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            onPressed: () => _assignContraventionToProprietaire(_proprietaire!),
+                            icon: const Icon(Icons.receipt_long, size: 18),
+                            tooltip: 'Assigner contravention',
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.orange[700],
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(32, 32),
+                              padding: const EdgeInsets.all(4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                _buildProprietaireRow(
-                  'Permis - Expiration',
-                  _formatDate(_proprietaire!['permis_date_expiration']),
-                ),
-                _buildProprietaireRow('Catégorie permis', _proprietaire!['permis_categorie']),
               ],
             ),
           ),
-        )
-      else
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.info_outline, color: Colors.grey.shade600),
-              const SizedBox(width: 8),
-              Text(
-                'Aucune information de propriétaire disponible',
-                style: TextStyle(color: Colors.grey.shade600),
-              ),
-            ],
-          ),
         ),
     ];
+  }
+
+  void _showProprietaireDetails(Map<String, dynamic> proprietaire) {
+    showDialog(
+      context: context,
+      builder: (context) => ParticulierDetailsModal(
+        particulier: proprietaire,
+      ),
+    );
+  }
+
+  void _assignContraventionToProprietaire(Map<String, dynamic> proprietaire) {
+    showDialog(
+      context: context,
+      builder: (context) => AssignContraventionParticulierModal(
+        particulier: proprietaire,
+        onSuccess: () {
+          // Recharger le propriétaire si nécessaire
+          _loadProprietaire();
+        },
+      ),
+    );
   }
 
   DataRow _buildProprietaireRow(String label, String? value) {

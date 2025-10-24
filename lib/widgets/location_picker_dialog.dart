@@ -31,8 +31,10 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
 
   @override
   void dispose() {
-    // Disposer le contrôleur de manière synchrone si disponible
-    _mapController?.dispose();
+    // Ne pas disposer manuellement le contrôleur GoogleMap
+    // Le widget GoogleMap gère automatiquement le dispose de son contrôleur
+    // Disposer manuellement cause des erreurs sur le web car le contrôleur
+    // a un cycle de vie interne complexe
     _mapController = null;
     super.dispose();
   }
@@ -275,7 +277,7 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => Navigator.of(context, rootNavigator: false).pop(),
                     color: theme.colorScheme.onPrimaryContainer,
                   ),
                 ],
@@ -409,7 +411,7 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () => Navigator.of(context, rootNavigator: false).pop(),
                         child: const Text('Annuler'),
                       ),
                       const SizedBox(width: 12),
@@ -417,7 +419,7 @@ class _LocationPickerDialogState extends State<LocationPickerDialog> {
                         onPressed: _isLoadingAddress
                             ? null
                             : () {
-                                Navigator.of(context).pop({
+                                Navigator.of(context, rootNavigator: false).pop({
                                   'address': _selectedAddress,
                                   'latitude': _selectedPosition.latitude,
                                   'longitude': _selectedPosition.longitude,

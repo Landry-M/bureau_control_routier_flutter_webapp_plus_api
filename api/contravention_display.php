@@ -74,7 +74,7 @@ try {
         FROM contraventions c
         LEFT JOIN particuliers p ON c.type_dossier = 'particulier' AND c.dossier_id = p.id
         LEFT JOIN entreprises e ON c.type_dossier = 'entreprise' AND c.dossier_id = e.id
-        LEFT JOIN vehicule_plaque vp ON c.type_dossier = 'vehicule_plaque' AND c.dossier_id = vp.id
+        LEFT JOIN vehicule_plaque vp ON (c.type_dossier = 'vehicule_plaque' AND c.dossier_id = vp.id)
         WHERE c.id = :id
         LIMIT 1
     ");
@@ -91,11 +91,21 @@ try {
     // Préparer les photos
     $photos = [];
     if (!empty($cv['photos'])) {
+        // Essayer d'abord de décoder comme JSON
         $photosJson = json_decode($cv['photos'], true);
         if (is_array($photosJson)) {
             $photos = $photosJson;
-        } elseif (is_string($cv['photos'])) {
-            $photos = [$cv['photos']];
+        } else {
+            // Si ce n'est pas du JSON, c'est peut-être séparé par des virgules
+            if (is_string($cv['photos']) && strpos($cv['photos'], ',') !== false) {
+                $photos = explode(',', $cv['photos']);
+                $photos = array_map('trim', $photos); // Enlever les espaces
+                $photos = array_filter($photos); // Enlever les éléments vides
+                $photos = array_values($photos); // Réindexer
+            } elseif (is_string($cv['photos']) && trim($cv['photos']) !== '') {
+                // Si c'est une chaîne simple non vide, la mettre dans un tableau
+                $photos = [trim($cv['photos'])];
+            }
         }
     }
     
@@ -145,6 +155,8 @@ $payload = [
     'reference_legale' => (string)($cv['reference_loi'] ?? ''),
     'payed' => (string)($cv['payed'] ?? 'non'),
     'observations' => '',
+    'latitude' => (string)($cv['latitude'] ?? ''),
+    'longitude' => (string)($cv['longitude'] ?? ''),
 ];
 
 ?>
@@ -268,27 +280,34 @@ $payload = [
         <?php endif; ?>
 
         <!-- Section Véhicule -->
-        <?php if (!empty($payload['marque_vehicule']) || !empty($payload['immatriculation'])): ?>
+        <?php if ($payload['type_dossier'] === 'vehicule_plaque' || !empty($payload['marque_vehicule']) || !empty($payload['immatriculation'])): ?>
         <div style="margin-bottom: 25px;">
             <h4 style="background: #f5f5f5; padding: 10px; margin: 0 0 15px 0; border-left: 4px solid #00509e;">
-                🚗 INFORMATIONS DU VÉHICULE
+                🚗 INFORMATIONS DU VÉHICULE <?= $payload['type_dossier'] === 'vehicule_plaque' ? '(CONTREVENANT)' : '' ?>
             </h4>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+                <div>
+                    <label style="font-weight: bold; display: block; margin-bottom: 5px;">Plaque d'immatriculation :</label>
+                    <input type="text" name="immatriculation" value="<?= htmlspecialchars($payload['immatriculation']) ?>" 
+                           style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-weight: bold; font-size: 16px; color: #d32f2f;" readonly>
+                </div>
                 <div>
                     <label style="font-weight: bold; display: block; margin-bottom: 5px;">Marque :</label>
                     <input type="text" name="marque_vehicule" value="<?= htmlspecialchars($payload['marque_vehicule']) ?>" 
                            style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" readonly>
                 </div>
                 <div>
-                    <label style="font-weight: bold; display: block; margin-bottom: 5px;">Plaque d'immatriculation :</label>
-                    <input type="text" name="immatriculation" value="<?= htmlspecialchars($payload['immatriculation']) ?>" 
-                           style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-weight: bold;" readonly>
-                </div>
-                <div>
                     <label style="font-weight: bold; display: block; margin-bottom: 5px;">Couleur :</label>
                     <input type="text" name="couleur_vehicule" value="<?= htmlspecialchars($payload['couleur_vehicule']) ?>" 
                            style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" readonly>
                 </div>
+                <?php if (!empty($payload['modele_vehicule'])): ?>
+                <div>
+                    <label style="font-weight: bold; display: block; margin-bottom: 5px;">Modèle :</label>
+                    <input type="text" name="modele_vehicule" value="<?= htmlspecialchars($payload['modele_vehicule']) ?>" 
+                           style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" readonly>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
         <?php endif; ?>
@@ -327,6 +346,20 @@ $payload = [
                 <textarea name="description_infraction" rows="4" 
                           style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" readonly><?= htmlspecialchars($payload['description_infraction']) ?></textarea>
             </div>
+            
+            <?php if (!empty($payload['latitude']) && !empty($payload['longitude'])): ?>
+            <div style="background: #e3f2fd; border: 2px solid #2196f3; border-radius: 8px; padding: 15px; margin-top: 15px;">
+                <h5 style="margin: 0 0 10px 0; color: #1976d2; font-size: 14px;">📍 Coordonnées géographiques</h5>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                    <div>
+                        <strong>Latitude :</strong> <?= htmlspecialchars($payload['latitude']) ?>
+                    </div>
+                    <div>
+                        <strong>Longitude :</strong> <?= htmlspecialchars($payload['longitude']) ?>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
 
         <!-- Section Sanction -->
@@ -364,21 +397,22 @@ $payload = [
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
                 <?php foreach ($photos as $photo): ?>
                     <?php 
-                    $photoUrl = $photo;
-                    // Si le chemin est relatif, ajouter l'URL de base
+                    // Nettoyer et construire l'URL de l'image
+                    $photoUrl = trim($photo);
+                    
+                    // Si ce n'est pas déjà une URL complète
                     if (!preg_match('/^https?:\/\//', $photoUrl)) {
-                        // Si le chemin ne commence pas par /, l'ajouter
-                        if (substr($photoUrl, 0, 1) !== '/') {
-                            $photoUrl = '/' . $photoUrl;
+                        // Enlever le slash initial s'il existe pour reconstruction propre
+                        $photoUrl = ltrim($photoUrl, '/');
+                        
+                        // Vérifier si le chemin contient déjà 'api/'
+                        if (!preg_match('/^api\//', $photoUrl)) {
+                            // Le chemin sauvegardé est du type: uploads/contraventions/file.jpg
+                            $photoUrl = $baseUrl . '/api/' . $photoUrl;
+                        } else {
+                            // Le chemin contient déjà api/, juste ajouter le baseUrl
+                            $photoUrl = $baseUrl . '/' . $photoUrl;
                         }
-                        // Vérifier si le chemin contient déjà /api/
-                        if (strpos($photoUrl, '/api/') === false) {
-                            // Si le chemin commence par /uploads, ajouter /api avant
-                            if (strpos($photoUrl, '/uploads') === 0) {
-                                $photoUrl = '/api' . $photoUrl;
-                            }
-                        }
-                        $photoUrl = $baseUrl . $photoUrl;
                     }
                     ?>
                     <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden;">

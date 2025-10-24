@@ -207,6 +207,57 @@ class VehiculeService {
       return null;
     }
   }
+
+  /// Retire un véhicule de la circulation (marque en_circulation = 0)
+  Future<Map<String, dynamic>> retirerVehicule(int vehiculeId) async {
+    try {
+      final response = await _apiClient.postJson(
+        '/vehicule/$vehiculeId/retirer',
+        {'en_circulation': 0},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data;
+      } else {
+        final data = json.decode(response.body);
+        final errorMessage = data['message'] ?? 'Erreur lors du retrait du véhicule';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Erreur lors du retrait du véhicule');
+    }
+  }
+
+  /// Récupère le propriétaire d'un véhicule via la table particulier_vehicule
+  Future<Map<String, dynamic>?> getProprietaireVehicule(int vehiculeId) async {
+    try {
+      final response = await _apiClient.get('/vehicule/$vehiculeId/proprietaire');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        
+        // Vérifier si un propriétaire a été trouvé
+        if (data['success'] == true && data['data'] != null) {
+          return Map<String, dynamic>.from(data['data']);
+        }
+        
+        return null; // Pas de propriétaire trouvé
+      } else {
+        final data = json.decode(response.body);
+        final errorMessage = data['message'] ?? 'Erreur lors de la récupération du propriétaire';
+        throw Exception(errorMessage);
+      }
+    } catch (e) {
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Erreur lors de la récupération du propriétaire');
+    }
+  }
 }
 
 /// Best-effort MIME type guess based on filename extension
