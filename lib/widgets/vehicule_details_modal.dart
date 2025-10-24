@@ -14,6 +14,9 @@ import 'contravention_map_viewer.dart';
 import 'edit_contravention_modal.dart';
 import 'particulier_details_modal.dart';
 import 'assign_contravention_particulier_modal.dart';
+import 'entreprise_details_modal.dart';
+import 'assign_contravention_entreprise_modal.dart';
+
 class VehiculeDetailsModal extends StatefulWidget {
   final Map<String, dynamic> vehicule;
 
@@ -79,8 +82,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
     try {
       final username = context.read<AuthProvider>().username;
       final api = ApiClient(baseUrl: ApiConfig.baseUrl);
-      final response = await api
-          .get('/contraventions/vehicule/${widget.vehicule['id']}?username=$username');
+      final response = await api.get(
+          '/contraventions/vehicule/${widget.vehicule['id']}?username=$username');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -116,8 +119,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
     try {
       final username = context.read<AuthProvider>().username;
       final api = ApiClient(baseUrl: ApiConfig.baseUrl);
-      final response = await api
-          .get('/assurances/vehicule/${widget.vehicule['id']}?username=$username');
+      final response = await api.get(
+          '/assurances/vehicule/${widget.vehicule['id']}?username=$username');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -153,17 +156,19 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
     try {
       final username = context.read<AuthProvider>().username;
       final api = ApiClient(baseUrl: ApiConfig.baseUrl);
-      final response = await api
-          .get('/plaques-temporaires/vehicule/${widget.vehicule['id']}?username=$username');
+      final response = await api.get(
+          '/plaques-temporaires/vehicule/${widget.vehicule['id']}?username=$username');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
-          _plaquesTemporaires = List<Map<String, dynamic>>.from(data['data'] ?? []);
+          _plaquesTemporaires =
+              List<Map<String, dynamic>>.from(data['data'] ?? []);
         });
       } else {
         setState(() {
-          _errorPlaquesTemporaires = 'Erreur lors du chargement des plaques temporaires';
+          _errorPlaquesTemporaires =
+              'Erreur lors du chargement des plaques temporaires';
         });
       }
     } catch (e) {
@@ -200,11 +205,13 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
         final data = json.decode(response.body);
         if (data['success'] == true) {
           setState(() {
-            _avisRecherche = List<Map<String, dynamic>>.from(data['data'] ?? []);
+            _avisRecherche =
+                List<Map<String, dynamic>>.from(data['data'] ?? []);
           });
         } else {
           setState(() {
-            _errorAvisRecherche = data['message'] ?? 'Erreur lors du chargement des avis de recherche';
+            _errorAvisRecherche = data['message'] ??
+                'Erreur lors du chargement des avis de recherche';
           });
         }
       } else {
@@ -232,17 +239,19 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
     try {
       final username = context.read<AuthProvider>().username;
       final api = ApiClient(baseUrl: ApiConfig.baseUrl);
-      final response = await api
-          .get('/vehicule/${widget.vehicule['id']}/historique-retraits?username=$username');
+      final response = await api.get(
+          '/vehicule/${widget.vehicule['id']}/historique-retraits?username=$username');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         setState(() {
-          _historiqueRetraits = List<Map<String, dynamic>>.from(data['data'] ?? []);
+          _historiqueRetraits =
+              List<Map<String, dynamic>>.from(data['data'] ?? []);
         });
       } else {
         setState(() {
-          _errorHistoriqueRetraits = 'Erreur lors du chargement de l\'historique';
+          _errorHistoriqueRetraits =
+              'Erreur lors du chargement de l\'historique';
         });
       }
     } catch (e) {
@@ -269,7 +278,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
     try {
       final username = context.read<AuthProvider>().username;
       final api = ApiClient(baseUrl: ApiConfig.baseUrl);
-      final response = await api.get('/vehicule/${widget.vehicule['id']}/proprietaire?username=$username');
+      final response = await api.get(
+          '/vehicule/${widget.vehicule['id']}/proprietaire?username=$username');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -310,8 +320,7 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
       final username = context.read<AuthProvider>().username;
       final api = ApiClient(baseUrl: ApiConfig.baseUrl);
       final response = await api.get(
-        '/vehicule/${widget.vehicule['id']}/proprietaire-entreprise?username=$username'
-      );
+          '/vehicule/${widget.vehicule['id']}/proprietaire-entreprise?username=$username');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -320,12 +329,14 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
         });
       } else {
         setState(() {
-          _errorProprietaireEntreprise = null; // Pas d'entreprise propriétaire, ce n'est pas une erreur
+          _errorProprietaireEntreprise =
+              null; // Pas d'entreprise propriétaire, ce n'est pas une erreur
         });
       }
     } catch (e) {
       setState(() {
-        _errorProprietaireEntreprise = null; // Ignorer l'erreur si pas d'entreprise
+        _errorProprietaireEntreprise =
+            null; // Ignorer l'erreur si pas d'entreprise
       });
     } finally {
       setState(() {
@@ -338,7 +349,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
     try {
       final username = context.read<AuthProvider>().username;
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/contravention/$contraventionId/update-payment'),
+        Uri.parse(
+            '${ApiConfig.baseUrl}/contravention/$contraventionId/update-payment'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'payed': isPaid ? 'oui' : 'non',
@@ -347,11 +359,12 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
       );
 
       final data = jsonDecode(response.body);
-      
+
       if (response.statusCode == 200 && data['success'] == true) {
         // Mettre à jour localement
         setState(() {
-          final index = _contraventions.indexWhere((c) => c['id'] == contraventionId);
+          final index =
+              _contraventions.indexWhere((c) => c['id'] == contraventionId);
           if (index != -1) {
             _contraventions[index]['payed'] = isPaid ? 'oui' : 'non';
           }
@@ -364,11 +377,9 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
             type: ToastificationType.success,
             style: ToastificationStyle.fillColored,
             title: const Text('Statut mis à jour'),
-            description: Text(
-              isPaid 
+            description: Text(isPaid
                 ? 'La contravention a été marquée comme payée'
-                : 'La contravention a été marquée comme non payée'
-            ),
+                : 'La contravention a été marquée comme non payée'),
             alignment: Alignment.topRight,
             autoCloseDuration: const Duration(seconds: 3),
             showProgressBar: true,
@@ -385,7 +396,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
           type: ToastificationType.error,
           style: ToastificationStyle.fillColored,
           title: const Text('Erreur'),
-          description: Text('Impossible de mettre à jour le statut: ${e.toString()}'),
+          description:
+              Text('Impossible de mettre à jour le statut: ${e.toString()}'),
           alignment: Alignment.topRight,
           autoCloseDuration: const Duration(seconds: 4),
           showProgressBar: true,
@@ -417,13 +429,14 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
       final uri = Uri.parse(displayUrl);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
-        
+
         toastification.show(
           context: context,
           type: ToastificationType.success,
           style: ToastificationStyle.fillColored,
           title: const Text('Contravention ouverte'),
-          description: const Text('La contravention a été ouverte dans votre navigateur'),
+          description: const Text(
+              'La contravention a été ouverte dans votre navigateur'),
           alignment: Alignment.topRight,
           autoCloseDuration: const Duration(seconds: 3),
         );
@@ -446,7 +459,7 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
   void _viewOnMap(Map<String, dynamic> contravention) {
     final latitude = contravention['latitude'];
     final longitude = contravention['longitude'];
-    
+
     if (latitude != null && longitude != null) {
       showDialog(
         context: context,
@@ -456,21 +469,17 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
       );
     } else {
       NotificationService.error(
-        context, 
-        'Aucune localisation disponible pour cette contravention'
-      );
+          context, 'Aucune localisation disponible pour cette contravention');
     }
   }
 
   void _editContravention(Map<String, dynamic> contravention) {
     // Vérifier les permissions superadmin
     final authProvider = context.read<AuthProvider>();
-    
+
     if (!authProvider.isAuthenticated || authProvider.role != 'superadmin') {
       NotificationService.error(
-        context,
-        'Accès refusé. Action réservée aux super-administrateurs.'
-      );
+          context, 'Accès refusé. Action réservée aux super-administrateurs.');
       return;
     }
 
@@ -492,7 +501,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
       builder: (context) => _AssuranceModal(
         vehiculeId: widget.vehicule['id'],
         isRenewal: isRenewal,
-        lastAssurance: isRenewal && _assurances.isNotEmpty ? _assurances.first : null,
+        lastAssurance:
+            isRenewal && _assurances.isNotEmpty ? _assurances.first : null,
       ),
     );
 
@@ -548,7 +558,10 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
               fontSize: isTitle ? 16 : 14,
               fontWeight: isTitle ? FontWeight.w600 : FontWeight.normal,
               color: isNA
-                  ? Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5)
+                  ? Theme.of(context)
+                      .colorScheme
+                      .onSurfaceVariant
+                      .withOpacity(0.5)
                   : Theme.of(context).colorScheme.onSurface,
               fontStyle: isNA ? FontStyle.italic : FontStyle.normal,
             ),
@@ -563,18 +576,19 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
 
   Widget _buildStatutCirculation() {
     final enCirculation = widget.vehicule['en_circulation'];
-    final isEnCirculation = enCirculation == 1 || enCirculation == '1' || enCirculation == true;
-    
+    final isEnCirculation =
+        enCirculation == 1 || enCirculation == '1' || enCirculation == true;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isEnCirculation 
+        color: isEnCirculation
             ? Colors.green.withOpacity(0.1)
             : Colors.red.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isEnCirculation 
+          color: isEnCirculation
               ? Colors.green.withOpacity(0.3)
               : Colors.red.withOpacity(0.3),
           width: 1.5,
@@ -609,11 +623,15 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  isEnCirculation ? 'En circulation' : 'Retiré de la circulation',
+                  isEnCirculation
+                      ? 'En circulation'
+                      : 'Retiré de la circulation',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: isEnCirculation ? Colors.green.shade700 : Colors.red.shade700,
+                    color: isEnCirculation
+                        ? Colors.green.shade700
+                        : Colors.red.shade700,
                   ),
                 ),
               ],
@@ -660,7 +678,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                     const SizedBox(height: 8),
                     _buildFormField('ID', widget.vehicule['id']),
                     const SizedBox(height: 12),
-                    _buildFormField('Plaque', widget.vehicule['plaque'], isTitle: true),
+                    _buildFormField('Plaque', widget.vehicule['plaque'],
+                        isTitle: true),
                     const SizedBox(height: 12),
                     _buildFormField('Marque', widget.vehicule['marque']),
                     const SizedBox(height: 12),
@@ -670,7 +689,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                     const SizedBox(height: 12),
                     _buildFormField('Année', widget.vehicule['annee']),
                     const SizedBox(height: 12),
-                    _buildFormField('Numéro chassis', widget.vehicule['numero_chassis']),
+                    _buildFormField(
+                        'Numéro chassis', widget.vehicule['numero_chassis']),
                     const SizedBox(height: 12),
                     _buildFormField('Genre', widget.vehicule['genre']),
                     const SizedBox(height: 12),
@@ -686,23 +706,29 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                   children: [
                     Text('Informations techniques', style: tt.titleMedium),
                     const SizedBox(height: 8),
-                    _buildFormField('Numéro moteur', widget.vehicule['num_moteur']),
+                    _buildFormField(
+                        'Numéro moteur', widget.vehicule['num_moteur']),
                     const SizedBox(height: 12),
                     _buildFormField('Origine', widget.vehicule['origine']),
                     const SizedBox(height: 12),
                     _buildFormField('Source', widget.vehicule['source']),
                     const SizedBox(height: 12),
-                    _buildFormField('Année fabrication', widget.vehicule['annee_fab']),
+                    _buildFormField(
+                        'Année fabrication', widget.vehicule['annee_fab']),
                     const SizedBox(height: 12),
-                    _buildFormField('Année circulation', widget.vehicule['annee_circ']),
+                    _buildFormField(
+                        'Année circulation', widget.vehicule['annee_circ']),
                     const SizedBox(height: 12),
                     _buildFormField('Type EM', widget.vehicule['type_em']),
                     const SizedBox(height: 12),
-                    _buildFormField('Frontière entrée', widget.vehicule['frontiere_entree']),
+                    _buildFormField('Frontière entrée',
+                        widget.vehicule['frontiere_entree']),
                     const SizedBox(height: 12),
-                    _buildFormField('Date importation', _formatDate(widget.vehicule['date_importation'])),
+                    _buildFormField('Date importation',
+                        _formatDate(widget.vehicule['date_importation'])),
                     const SizedBox(height: 12),
-                    _buildFormField('Numéro déclaration', widget.vehicule['numero_declaration']),
+                    _buildFormField('Numéro déclaration',
+                        widget.vehicule['numero_declaration']),
                   ],
                 ),
               ),
@@ -717,11 +743,13 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
           Row(
             children: [
               Expanded(
-                child: _buildFormField('Plaque valide le', _formatDate(widget.vehicule['plaque_valide_le'])),
+                child: _buildFormField('Plaque valide le',
+                    _formatDate(widget.vehicule['plaque_valide_le'])),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _buildFormField('Plaque expire le', _formatDate(widget.vehicule['plaque_expire_le'])),
+                child: _buildFormField('Plaque expire le',
+                    _formatDate(widget.vehicule['plaque_expire_le'])),
               ),
             ],
           ),
@@ -736,18 +764,20 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
           Row(
             children: [
               Expanded(
-                child: _buildFormField('Date de création', _formatDate(widget.vehicule['created_at'])),
+                child: _buildFormField('Date de création',
+                    _formatDate(widget.vehicule['created_at'])),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _buildFormField('Dernière modification', _formatDate(widget.vehicule['updated_at'])),
+                child: _buildFormField('Dernière modification',
+                    _formatDate(widget.vehicule['updated_at'])),
               ),
             ],
           ),
 
           // Informations du propriétaire si disponible
           ..._buildProprietaireSection(),
-          
+
           // Informations de l'entreprise propriétaire si disponible
           ..._buildProprietaireEntrepriseSection(),
         ],
@@ -774,11 +804,11 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
           ),
           const SizedBox(width: 8),
           Text(
-            'Informations du propriétaire',
+            'Informations sur le propriétaire',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
           ),
         ],
       ),
@@ -874,7 +904,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            onPressed: () => _showProprietaireDetails(_proprietaire!),
+                            onPressed: () =>
+                                _showProprietaireDetails(_proprietaire!),
                             icon: const Icon(Icons.info_outline, size: 18),
                             tooltip: 'Voir détails',
                             style: IconButton.styleFrom(
@@ -889,7 +920,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                           ),
                           const SizedBox(width: 4),
                           IconButton(
-                            onPressed: () => _assignContraventionToProprietaire(_proprietaire!),
+                            onPressed: () => _assignContraventionToProprietaire(
+                                _proprietaire!),
                             icon: const Icon(Icons.receipt_long, size: 18),
                             tooltip: 'Assigner contravention',
                             style: IconButton.styleFrom(
@@ -936,25 +968,22 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
     );
   }
 
-  DataRow _buildProprietaireRow(String label, String? value) {
-    return DataRow(
-      cells: [
-        DataCell(
-          Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-        ),
-        DataCell(
-          Text(
-            value?.toString() ?? 'N/A',
-            style: const TextStyle(fontSize: 13),
-          ),
-        ),
-      ],
+  void _showEntrepriseDetails(Map<String, dynamic> entreprise) {
+    showDialog(
+      context: context,
+      builder: (context) => EntrepriseDetailsModal(
+        entreprise: entreprise,
+      ),
+    );
+  }
+
+  void _assignContraventionToEntreprise(Map<String, dynamic> entreprise) {
+    showDialog(
+      context: context,
+      builder: (context) => AssignContraventionEntrepriseModal(
+        dossier: entreprise,
+        typeDossier: 'entreprise',
+      ),
     );
   }
 
@@ -977,11 +1006,11 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
           ),
           const SizedBox(width: 8),
           Text(
-            'Propriétaire du véhicule',
+            'Informations sur le propriétaire',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
           ),
         ],
       ),
@@ -1003,38 +1032,117 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: DataTable(
-              columnSpacing: 16,
-              horizontalMargin: 16,
+              columnSpacing: 12,
+              horizontalMargin: 12,
               headingRowColor: MaterialStateProperty.all(
                 Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.5),
               ),
-              dataRowMaxHeight: 60,
+              dataRowMaxHeight: 56,
               columns: const [
                 DataColumn(
                   label: Text(
-                    'Champ',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    'Désignation',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
                 DataColumn(
                   label: Text(
-                    'Valeur',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    'Téléphone',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Email',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Siège social',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Actions',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
               ],
               rows: [
-                _buildProprietaireRow('ID', _proprietaireEntreprise!['id']?.toString()),
-                _buildProprietaireRow('Désignation', _proprietaireEntreprise!['designation']),
-                _buildProprietaireRow('RCCM', _proprietaireEntreprise!['rccm']),
-                _buildProprietaireRow('Téléphone', _proprietaireEntreprise!['telephone']),
-                _buildProprietaireRow('Email', _proprietaireEntreprise!['email']),
-                _buildProprietaireRow('Siège social', _proprietaireEntreprise!['siege_social']),
-                _buildProprietaireRow('Secteur', _proprietaireEntreprise!['secteur']),
-                _buildProprietaireRow('Personne de contact', _proprietaireEntreprise!['personne_contact']),
-                _buildProprietaireRow(
-                  'Date association',
-                  _formatDate(_proprietaireEntreprise!['date_assoc']),
+                DataRow(
+                  cells: [
+                    DataCell(
+                      Text(
+                        _proprietaireEntreprise!['designation']?.toString() ??
+                            'N/A',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        _proprietaireEntreprise!['telephone']?.toString() ??
+                            'N/A',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        _proprietaireEntreprise!['email']?.toString() ?? 'N/A',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        _proprietaireEntreprise!['siege_social']?.toString() ??
+                            'N/A',
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: () => _showEntrepriseDetails(
+                                _proprietaireEntreprise!),
+                            icon: const Icon(Icons.info_outline, size: 18),
+                            tooltip: 'Voir détails',
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.blue[700],
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(32, 32),
+                              padding: const EdgeInsets.all(4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            onPressed: () => _assignContraventionToEntreprise(
+                                _proprietaireEntreprise!),
+                            icon: const Icon(Icons.receipt_long, size: 18),
+                            tooltip: 'Assigner contravention',
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.orange[700],
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(32, 32),
+                              padding: const EdgeInsets.all(4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1047,7 +1155,7 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
     try {
       final imagesString = widget.vehicule['images']?.toString() ?? '[]';
       final List<dynamic> imagesList = jsonDecode(imagesString);
-      
+
       if (imagesList.isEmpty) {
         return Container(
           padding: const EdgeInsets.all(16),
@@ -1077,11 +1185,12 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
           itemBuilder: (context, index) {
             final imagePath = imagesList[index].toString();
             final imageUrl = '${ApiConfig.imageBaseUrl}$imagePath';
-            
+
             return Container(
               margin: const EdgeInsets.only(right: 12),
               child: GestureDetector(
-                onTap: () => _showFullScreenImage(imageUrl, 'Photo véhicule ${index + 1}'),
+                onTap: () => _showFullScreenImage(
+                    imageUrl, 'Photo véhicule ${index + 1}'),
                 child: Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
@@ -1110,7 +1219,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                               color: Colors.grey.shade200,
                               child: Center(
                                 child: CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes != null
+                                  value: loadingProgress.expectedTotalBytes !=
+                                          null
                                       ? loadingProgress.cumulativeBytesLoaded /
                                           loadingProgress.expectedTotalBytes!
                                       : null,
@@ -1274,7 +1384,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
               left: 40,
               right: 40,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.7),
                   borderRadius: BorderRadius.circular(8),
@@ -1670,7 +1781,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                               },
                               activeColor: Colors.green,
                               inactiveThumbColor: Colors.red,
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
                             ),
                           ),
                         ),
@@ -1844,7 +1956,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.secondary,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     textStyle: const TextStyle(fontSize: 12),
                   ),
                 ),
@@ -1911,9 +2024,11 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                   )),
                 ],
                 rows: _assurances.map((assurance) {
-                  final isExpired = assurance['date_expire_assurance'] != null &&
-                      DateTime.parse(assurance['date_expire_assurance']).isBefore(DateTime.now());
-                  
+                  final isExpired =
+                      assurance['date_expire_assurance'] != null &&
+                          DateTime.parse(assurance['date_expire_assurance'])
+                              .isBefore(DateTime.now());
+
                   return DataRow(
                     color: MaterialStateProperty.all(
                       isExpired ? Colors.red.withOpacity(0.1) : null,
@@ -1965,7 +2080,7 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                         Container(
                           width: double.infinity,
                           child: Text(
-                            assurance['montant_prime'] != null 
+                            assurance['montant_prime'] != null
                                 ? '${assurance['montant_prime']} FC'
                                 : 'N/A',
                             style: const TextStyle(
@@ -2124,31 +2239,36 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                   DataColumn(
                     label: Expanded(
                       flex: 2,
-                      child: Text('Numéro', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text('Numéro',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                   DataColumn(
                     label: Expanded(
                       flex: 2,
-                      child: Text('Dates validité', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text('Dates validité',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                   DataColumn(
                     label: Expanded(
                       flex: 3,
-                      child: Text('Motif', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text('Motif',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                   DataColumn(
                     label: Expanded(
                       flex: 1,
-                      child: Text('Statut', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text('Statut',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                   DataColumn(
                     label: Expanded(
                       flex: 1,
-                      child: Text('PDF', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text('PDF',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -2157,7 +2277,7 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                   final dateFin = _formatDate(plaque['date_fin']);
                   final isExpired = _isPlaqueExpired(plaque['date_fin']);
                   final statut = plaque['statut'] ?? 'actif';
-                  
+
                   return DataRow(
                     cells: [
                       DataCell(
@@ -2165,7 +2285,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                           width: double.infinity,
                           child: Text(
                             plaque['numero'] ?? '',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -2209,9 +2330,12 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: statut == 'actif' ? Colors.green.shade100 : Colors.grey.shade100,
+                                  color: statut == 'actif'
+                                      ? Colors.green.shade100
+                                      : Colors.grey.shade100,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
@@ -2219,14 +2343,17 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
-                                    color: statut == 'actif' ? Colors.green.shade700 : Colors.grey.shade700,
+                                    color: statut == 'actif'
+                                        ? Colors.green.shade700
+                                        : Colors.grey.shade700,
                                   ),
                                 ),
                               ),
                               if (isExpired) ...[
                                 const SizedBox(height: 2),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: Colors.red.shade100,
                                     borderRadius: BorderRadius.circular(12),
@@ -2283,11 +2410,12 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
 
   void _viewPlaqueTemporairePdf(Map<String, dynamic> plaque) async {
     final plaqueId = plaque['id'];
-    final previewUrl = "${ApiConfig.imageBaseUrl}/api/plaque_temporaire_display.php?id=$plaqueId";
-    
+    final previewUrl =
+        "${ApiConfig.imageBaseUrl}/api/plaque_temporaire_display.php?id=$plaqueId";
+
     try {
       final uri = Uri.parse(previewUrl);
-      
+
       // Essayer d'abord avec le mode externe
       bool launched = false;
       try {
@@ -2310,14 +2438,15 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
           );
         }
       }
-      
+
       if (launched) {
         toastification.show(
           context: context,
           type: ToastificationType.success,
           style: ToastificationStyle.fillColored,
           title: const Text('Prévisualisation ouverte'),
-          description: Text('Plaque ${plaque['numero']} ouverte dans une nouvelle fenêtre'),
+          description: Text(
+              'Plaque ${plaque['numero']} ouverte dans une nouvelle fenêtre'),
           alignment: Alignment.topRight,
           autoCloseDuration: const Duration(seconds: 3),
           showProgressBar: true,
@@ -2331,7 +2460,7 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
       _showUrlFallback(previewUrl);
     }
   }
-  
+
   void _showUrlFallback(String url) {
     showDialog(
       context: context,
@@ -2341,7 +2470,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Copiez cette URL dans votre navigateur pour voir la plaque temporaire:'),
+            const Text(
+                'Copiez cette URL dans votre navigateur pour voir la plaque temporaire:'),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(8),
@@ -2459,7 +2589,10 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.3),
+              color: Theme.of(context)
+                  .colorScheme
+                  .surfaceContainer
+                  .withOpacity(0.3),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -2492,15 +2625,38 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                 columnSpacing: 8,
                 horizontalMargin: 12,
                 headingRowColor: MaterialStateProperty.all(
-                  Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.5),
+                  Theme.of(context)
+                      .colorScheme
+                      .surfaceContainer
+                      .withOpacity(0.5),
                 ),
                 dataRowMaxHeight: 60,
                 columns: const [
-                  DataColumn(label: Expanded(flex: 1, child: Text('ID', style: TextStyle(fontWeight: FontWeight.bold)))),
-                  DataColumn(label: Expanded(flex: 3, child: Text('Motif', style: TextStyle(fontWeight: FontWeight.bold)))),
-                  DataColumn(label: Expanded(flex: 2, child: Text('Niveau', style: TextStyle(fontWeight: FontWeight.bold)))),
-                  DataColumn(label: Expanded(flex: 2, child: Text('Date émission', style: TextStyle(fontWeight: FontWeight.bold)))),
-                  DataColumn(label: Expanded(flex: 1, child: Text('Actif', style: TextStyle(fontWeight: FontWeight.bold)))),
+                  DataColumn(
+                      label: Expanded(
+                          flex: 1,
+                          child: Text('ID',
+                              style: TextStyle(fontWeight: FontWeight.bold)))),
+                  DataColumn(
+                      label: Expanded(
+                          flex: 3,
+                          child: Text('Motif',
+                              style: TextStyle(fontWeight: FontWeight.bold)))),
+                  DataColumn(
+                      label: Expanded(
+                          flex: 2,
+                          child: Text('Niveau',
+                              style: TextStyle(fontWeight: FontWeight.bold)))),
+                  DataColumn(
+                      label: Expanded(
+                          flex: 2,
+                          child: Text('Date émission',
+                              style: TextStyle(fontWeight: FontWeight.bold)))),
+                  DataColumn(
+                      label: Expanded(
+                          flex: 1,
+                          child: Text('Actif',
+                              style: TextStyle(fontWeight: FontWeight.bold)))),
                 ],
                 rows: _avisRecherche.map((avis) {
                   final niveau = avis['niveau'] ?? 'moyen';
@@ -2526,7 +2682,9 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                       DataCell(
                         Container(
                           width: double.infinity,
-                          child: Text('#${avis['id']}', style: const TextStyle(fontWeight: FontWeight.w500)),
+                          child: Text('#${avis['id']}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w500)),
                         ),
                       ),
                       DataCell(
@@ -2544,7 +2702,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                         Container(
                           width: double.infinity,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: niveauColor.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(12),
@@ -2552,7 +2711,10 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                             ),
                             child: Text(
                               niveau.toUpperCase(),
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: niveauColor),
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: niveauColor),
                               textAlign: TextAlign.center,
                             ),
                           ),
@@ -2561,7 +2723,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                       DataCell(
                         Container(
                           width: double.infinity,
-                          child: Text(dateEmission, style: const TextStyle(fontSize: 12)),
+                          child: Text(dateEmission,
+                              style: const TextStyle(fontSize: 12)),
                         ),
                       ),
                       DataCell(
@@ -2570,7 +2733,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                           child: Switch(
                             value: isActif,
                             onChanged: (value) {
-                              _updateAvisRechercheStatus(avis['id'], value ? 'actif' : 'inactif');
+                              _updateAvisRechercheStatus(
+                                  avis['id'], value ? 'actif' : 'inactif');
                             },
                             activeColor: Colors.red,
                           ),
@@ -2633,7 +2797,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
           type: ToastificationType.error,
           style: ToastificationStyle.fillColored,
           title: const Text('Erreur'),
-          description: Text('Impossible de mettre à jour le statut: ${e.toString()}'),
+          description:
+              Text('Impossible de mettre à jour le statut: ${e.toString()}'),
           alignment: Alignment.topRight,
           autoCloseDuration: const Duration(seconds: 4),
           showProgressBar: true,
@@ -2722,7 +2887,10 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.3),
+              color: Theme.of(context)
+                  .colorScheme
+                  .surfaceContainer
+                  .withOpacity(0.3),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -2755,15 +2923,43 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                 columnSpacing: 8,
                 horizontalMargin: 12,
                 headingRowColor: MaterialStateProperty.all(
-                  Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.5),
+                  Theme.of(context)
+                      .colorScheme
+                      .surfaceContainer
+                      .withOpacity(0.5),
                 ),
                 dataRowMaxHeight: 70,
                 columns: const [
-                  DataColumn(label: Expanded(flex: 1, child: Text('ID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
-                  DataColumn(label: Expanded(flex: 2, child: Text('Plaque retirée', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
-                  DataColumn(label: Expanded(flex: 2, child: Text('Date retrait', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
-                  DataColumn(label: Expanded(flex: 2, child: Text('Motif', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
-                  DataColumn(label: Expanded(flex: 3, child: Text('Observations', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)))),
+                  DataColumn(
+                      label: Expanded(
+                          flex: 1,
+                          child: Text('ID',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 12)))),
+                  DataColumn(
+                      label: Expanded(
+                          flex: 2,
+                          child: Text('Plaque retirée',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 12)))),
+                  DataColumn(
+                      label: Expanded(
+                          flex: 2,
+                          child: Text('Date retrait',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 12)))),
+                  DataColumn(
+                      label: Expanded(
+                          flex: 2,
+                          child: Text('Motif',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 12)))),
+                  DataColumn(
+                      label: Expanded(
+                          flex: 3,
+                          child: Text('Observations',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 12)))),
                 ],
                 rows: _historiqueRetraits.map((historique) {
                   final dateRetrait = _formatDate(historique['date_retrait']);
@@ -2776,7 +2972,9 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                       DataCell(
                         Container(
                           width: double.infinity,
-                          child: Text('#${historique['id']}', style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12)),
+                          child: Text('#${historique['id']}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w500, fontSize: 12)),
                         ),
                       ),
                       DataCell(
@@ -2784,7 +2982,8 @@ class _VehiculeDetailsModalState extends State<VehiculeDetailsModal>
                           width: double.infinity,
                           child: Text(
                             plaque,
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -2857,7 +3056,7 @@ class _AssuranceModalState extends State<_AssuranceModal> {
   final _primeController = TextEditingController();
   final _typeController = TextEditingController();
   final _notesController = TextEditingController();
-  
+
   DateTime? _dateDebut;
   DateTime? _dateFin;
   bool _loading = false;
@@ -2867,9 +3066,12 @@ class _AssuranceModalState extends State<_AssuranceModal> {
     super.initState();
     if (widget.isRenewal && widget.lastAssurance != null) {
       // Pré-remplir avec les données de la dernière assurance
-      _societeController.text = widget.lastAssurance!['societe_assurance']?.toString() ?? '';
-      _typeController.text = widget.lastAssurance!['type_couverture']?.toString() ?? '';
-      _primeController.text = widget.lastAssurance!['montant_prime']?.toString() ?? '';
+      _societeController.text =
+          widget.lastAssurance!['societe_assurance']?.toString() ?? '';
+      _typeController.text =
+          widget.lastAssurance!['type_couverture']?.toString() ?? '';
+      _primeController.text =
+          widget.lastAssurance!['montant_prime']?.toString() ?? '';
       _notesController.text = widget.lastAssurance!['notes']?.toString() ?? '';
     }
   }
@@ -2917,7 +3119,8 @@ class _AssuranceModalState extends State<_AssuranceModal> {
         type: ToastificationType.warning,
         style: ToastificationStyle.fillColored,
         title: const Text('Dates requises'),
-        description: const Text('Veuillez sélectionner les dates de début et de fin'),
+        description:
+            const Text('Veuillez sélectionner les dates de début et de fin'),
         alignment: Alignment.topRight,
         autoCloseDuration: const Duration(seconds: 3),
       );
@@ -2937,9 +3140,12 @@ class _AssuranceModalState extends State<_AssuranceModal> {
           'vehicule_plaque_id': widget.vehiculeId,
           'societe_assurance': _societeController.text,
           'nume_assurance': _numeroController.text,
-          'date_valide_assurance': '${_dateDebut!.year}-${_dateDebut!.month.toString().padLeft(2, '0')}-${_dateDebut!.day.toString().padLeft(2, '0')}',
-          'date_expire_assurance': '${_dateFin!.year}-${_dateFin!.month.toString().padLeft(2, '0')}-${_dateFin!.day.toString().padLeft(2, '0')}',
-          'montant_prime': _primeController.text.isNotEmpty ? _primeController.text : null,
+          'date_valide_assurance':
+              '${_dateDebut!.year}-${_dateDebut!.month.toString().padLeft(2, '0')}-${_dateDebut!.day.toString().padLeft(2, '0')}',
+          'date_expire_assurance':
+              '${_dateFin!.year}-${_dateFin!.month.toString().padLeft(2, '0')}-${_dateFin!.day.toString().padLeft(2, '0')}',
+          'montant_prime':
+              _primeController.text.isNotEmpty ? _primeController.text : null,
           'type_couverture': _typeController.text,
           'notes': _notesController.text,
           'username': username,
@@ -2947,19 +3153,19 @@ class _AssuranceModalState extends State<_AssuranceModal> {
       );
 
       final data = jsonDecode(response.body);
-      
+
       if (response.statusCode == 200 && data['success'] == true) {
         if (mounted) {
           toastification.show(
             context: context,
             type: ToastificationType.success,
             style: ToastificationStyle.fillColored,
-            title: Text(widget.isRenewal ? 'Assurance renouvelée' : 'Assurance ajoutée'),
-            description: Text(
-              widget.isRenewal 
+            title: Text(widget.isRenewal
+                ? 'Assurance renouvelée'
+                : 'Assurance ajoutée'),
+            description: Text(widget.isRenewal
                 ? 'L\'assurance a été renouvelée avec succès'
-                : 'L\'assurance a été ajoutée avec succès'
-            ),
+                : 'L\'assurance a été ajoutée avec succès'),
             alignment: Alignment.topRight,
             autoCloseDuration: const Duration(seconds: 3),
             showProgressBar: true,
@@ -3017,10 +3223,12 @@ class _AssuranceModalState extends State<_AssuranceModal> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      widget.isRenewal ? 'Renouveler l\'assurance' : 'Ajouter une assurance',
+                      widget.isRenewal
+                          ? 'Renouveler l\'assurance'
+                          : 'Ajouter une assurance',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                   ),
                   IconButton(
@@ -3097,7 +3305,8 @@ class _AssuranceModalState extends State<_AssuranceModal> {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             'Date de début *',
@@ -3131,7 +3340,8 @@ class _AssuranceModalState extends State<_AssuranceModal> {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             'Date de fin *',
@@ -3199,7 +3409,10 @@ class _AssuranceModalState extends State<_AssuranceModal> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainer.withOpacity(0.3),
+                color: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainer
+                    .withOpacity(0.3),
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(12),
                   bottomRight: Radius.circular(12),
@@ -3209,7 +3422,8 @@ class _AssuranceModalState extends State<_AssuranceModal> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: _loading ? null : () => Navigator.of(context).pop(),
+                    onPressed:
+                        _loading ? null : () => Navigator.of(context).pop(),
                     child: const Text('Annuler'),
                   ),
                   const SizedBox(width: 16),
@@ -3225,7 +3439,8 @@ class _AssuranceModalState extends State<_AssuranceModal> {
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
                         : Text(widget.isRenewal ? 'Renouveler' : 'Ajouter'),
