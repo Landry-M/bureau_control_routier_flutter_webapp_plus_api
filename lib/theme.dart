@@ -53,7 +53,8 @@ ThemeData buildAppTheme() {
       elevation: 0,
       foregroundColor: colorScheme.onSurface,
       centerTitle: false,
-      titleTextStyle: textTheme.titleLarge?.copyWith(color: colorScheme.onSurface),
+      titleTextStyle:
+          textTheme.titleLarge?.copyWith(color: colorScheme.onSurface),
     ),
     chipTheme: ChipThemeData(
       backgroundColor: colorScheme.surface,
@@ -81,7 +82,7 @@ ThemeData buildAppTheme() {
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: colorScheme.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

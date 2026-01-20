@@ -486,6 +486,240 @@ switch (true) {
             ]);
         }
         break;
+
+    case $method === 'GET' && $path === '/vehicule/crpt':
+        try {
+            $plaque = $_GET['plaque'] ?? '';
+            $plaque = strtoupper(trim((string)$plaque));
+            $plaque = preg_replace('/\s+/', '', $plaque);
+
+            if ($plaque === '' || !preg_match('/^[A-Z0-9-]+$/', $plaque)) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Plaque invalide'
+                ]);
+                break;
+            }
+
+            if (!function_exists('curl_init')) {
+                throw new Exception('cURL non disponible');
+            }
+            if (!class_exists('DOMDocument')) {
+                throw new Exception('Extension DOM non disponible');
+            }
+
+            $url = 'https://crpt.valornet-rdc.com/register/' . rawurlencode($plaque);
+
+            $caCandidates = [
+                '/etc/ssl/certs/ca-certificates.crt',
+                '/etc/ssl/cert.pem',
+                '/usr/local/etc/openssl@3/cert.pem',
+                '/usr/local/etc/openssl/cert.pem',
+                '/opt/homebrew/etc/openssl@3/cert.pem',
+                '/opt/homebrew/etc/openssl/cert.pem',
+            ];
+
+            $caFile = null;
+            foreach ($caCandidates as $cand) {
+                if (is_string($cand) && $cand !== '' && file_exists($cand)) {
+                    $caFile = $cand;
+                    break;
+                }
+            }
+
+            $verifySsl = true;
+            if ($caFile === null) {
+                $verifySsl = !Environment::isDebugMode();
+            }
+
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_TIMEOUT => 15,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; bcr/1.0)',
+                CURLOPT_SSL_VERIFYPEER => $verifySsl,
+                CURLOPT_SSL_VERIFYHOST => $verifySsl ? 2 : 0,
+                CURLOPT_SSLVERSION => defined('CURL_SSLVERSION_TLSv1_2') ? CURL_SSLVERSION_TLSv1_2 : 0,
+            ]);
+
+            if ($caFile !== null) {
+                curl_setopt($ch, CURLOPT_CAINFO, $caFile);
+            }
+
+            $html = curl_exec($ch);
+            $curlErrno = curl_errno($ch);
+            $curlError = curl_error($ch);
+            $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if (($curlErrno === 60 || $curlErrno === 51) && Environment::isDebugMode()) {
+                $ch = curl_init($url);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_TIMEOUT => 15,
+                    CURLOPT_CONNECTTIMEOUT => 10,
+                    CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; bcr/1.0)',
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_SSL_VERIFYHOST => 0,
+                ]);
+                $html = curl_exec($ch);
+                $curlErrno = curl_errno($ch);
+                $curlError = curl_error($ch);
+                $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+            }
+
+            if ($curlErrno !== 0 || $html === false) {
+                http_response_code(502);
+                if (($curlErrno === 60 || $curlErrno === 51) && !Environment::isDebugMode()) {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'Erreur SSL vers CRPT. Configurez un CA bundle (php.ini curl.cainfo/openssl.cafile) ou installez les certificats CA sur le serveur.'
+                    ]);
+                    break;
+                }
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Erreur de connexion CRPT: ' . $curlError
+                ]);
+                break;
+            }
+
+            if ($statusCode < 200 || $statusCode >= 300) {
+                http_response_code(502);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'CRPT a répondu avec un code HTTP ' . $statusCode
+                ]);
+                break;
+            }
+
+            libxml_use_internal_errors(true);
+            $doc = new DOMDocument();
+            $doc->loadHTML($html);
+            $xpath = new DOMXPath($doc);
+
+            $extractValue = function($aliases) use ($xpath) {
+                foreach ($aliases as $alias) {
+                    $alias = trim((string)$alias);
+                    if ($alias === '') {
+                        continue;
+                    }
+
+                    $nodes = $xpath->query("//*[@name='$alias' or @id='$alias']");
+                    if ($nodes && $nodes->length > 0) {
+                        $node = $nodes->item(0);
+                        $nodeName = strtolower($node->nodeName);
+
+                        if ($nodeName === 'select') {
+                            $isCouleur = stripos($alias, 'couleur') !== false;
+                            $options = $xpath->query('.//option', $node);
+
+                            if ($isCouleur) {
+                                $selected = $xpath->query('.//option[@selected]', $node);
+                                if ($selected && $selected->length > 0) {
+                                    $v = $selected->item(0)->getAttribute('value');
+                                    $v = is_string($v) ? trim($v) : '';
+                                    if ($v !== '') return $v;
+                                    $v = trim($selected->item(0)->textContent);
+                                    if ($v !== '') return $v;
+                                }
+                            }
+
+                            if ($options && $options->length >= 2) {
+                                $opt = $options->item(1);
+                                if ($opt) {
+                                    $optValue = $opt->getAttribute('value');
+                                    $optValue = is_string($optValue) ? trim($optValue) : '';
+                                    if ($optValue !== '') return $optValue;
+
+                                    $optText = trim($opt->textContent);
+                                    if ($optText !== '') return $optText;
+                                }
+                            }
+
+                            if (!$isCouleur) {
+                                $selected = $xpath->query('.//option[@selected]', $node);
+                                if ($selected && $selected->length > 0) {
+                                    $v = $selected->item(0)->getAttribute('value');
+                                    $v = is_string($v) ? trim($v) : '';
+                                    if ($v !== '') return $v;
+                                    $v = trim($selected->item(0)->textContent);
+                                    if ($v !== '') return $v;
+                                }
+                            }
+
+                            $valueAttr = $node->getAttribute('value');
+                            $valueAttr = is_string($valueAttr) ? trim($valueAttr) : '';
+                            if ($valueAttr !== '') return $valueAttr;
+
+                            continue;
+                        }
+
+                        if ($nodeName === 'textarea') {
+                            $v = trim($node->textContent);
+                            if ($v !== '') return $v;
+                            continue;
+                        }
+
+                        $v = $node->getAttribute('value');
+                        $v = is_string($v) ? trim($v) : '';
+                        if ($v !== '') return $v;
+
+                        $t = trim($node->textContent);
+                        if ($t !== '') return $t;
+                    }
+
+                    $nodes = $xpath->query("//*[@data-name='$alias' or @data-field='$alias']");
+                    if ($nodes && $nodes->length > 0) {
+                        $t = trim($nodes->item(0)->textContent);
+                        if ($t !== '') return $t;
+                    }
+                }
+                return null;
+            };
+
+            $fieldMap = [
+                'marque' => ['marque', 'marque_vehicule'],
+                'modele' => ['modele', 'modele_vehicule'],
+                'annee' => ['annee', 'annee_vehicule', 'annee_du_vehicule', 'vehicule_annee', 'annee_immatriculation', 'year', 'vehicle_year'],
+                'couleur' => ['couleur', 'couleur_vehicule'],
+                'numero_chassis' => ['numero_chassis', 'chassis', 'numero_chassis_vehicule', 'numero_de_chassis', 'num_chassis', 'vin', 'chassis_number', 'numero_serie', 'num_serie', 'numero_identification'],
+                'genre' => ['genre'],
+                'usage' => ['usage'],
+                'numero_declaration' => ['numero_declaration', 'numero_volet_jaune', 'numero_volet'],
+                'num_moteur' => ['num_moteur', 'numero_moteur'],
+                'origine' => ['origine'],
+                'source' => ['source'],
+                'annee_fab' => ['annee_fab', 'annee_fabrication'],
+                'annee_circ' => ['annee_circ', 'annee_circulation'],
+                'type_em' => ['type_em', 'typeem'],
+            ];
+
+            $data = [];
+            foreach ($fieldMap as $key => $aliases) {
+                $val = $extractValue($aliases);
+                if ($val !== null && trim((string)$val) !== '') {
+                    $data[$key] = $val;
+                }
+            }
+
+            echo json_encode([
+                'success' => true,
+                'data' => $data,
+            ]);
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ]);
+        }
+        break;
     case $method === 'POST' && $path === '/create-vehicule-with-contravention':
         try {
             require_once __DIR__ . '/../controllers/VehiculeController.php';

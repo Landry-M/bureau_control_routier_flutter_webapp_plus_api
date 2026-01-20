@@ -25,7 +25,8 @@ class VehiculeController extends BaseController {
             $stmt->bindParam(':modele', $data['modele']);
             $stmt->bindParam(':couleur', $data['couleur']);
             $stmt->bindParam(':proprietaire_id', $data['proprietaire_id']);
-            $stmt->bindParam(':statut', $data['statut'] ?? 'actif');
+            $statut = $data['statut'] ?? 'actif';
+            $stmt->bindParam(':statut', $statut);
             
             if ($stmt->execute()) {
                 return [
@@ -254,27 +255,28 @@ class VehiculeController extends BaseController {
      */
     public function update($id, $data, $vehicleImages = []) {
         try {
-            // Helper function for safe data access
-            $f = function($k, $def = null) use ($data) { 
-                return isset($data[$k]) && $data[$k] !== '' ? $data[$k] : $def; 
-            };
-
             // Vérifier que le véhicule existe
-            $checkQuery = "SELECT id FROM vehicule_plaque WHERE id = :id";
-            $checkStmt = $this->db->prepare($checkQuery);
-            $checkStmt->bindParam(':id', $id);
-            $checkStmt->execute();
-            
-            if ($checkStmt->rowCount() === 0) {
+            $currentQuery = "SELECT * FROM vehicule_plaque WHERE id = :id LIMIT 1";
+            $currentStmt = $this->db->prepare($currentQuery);
+            $currentStmt->bindParam(':id', $id);
+            $currentStmt->execute();
+
+            $current = $currentStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$current) {
                 return [
                     'success' => false,
                     'message' => 'Véhicule non trouvé'
                 ];
             }
 
+            // Helper function for safe data access
+            $f = function($k, $def = null) use ($data) {
+                return array_key_exists($k, $data) && $data[$k] !== '' ? $data[$k] : $def;
+            };
+
             // Vérifier l'unicité de la plaque si elle est modifiée
-            $plaque = $f('plaque');
-            if ($plaque && trim($plaque) !== '') {
+            $plaque = $f('plaque', $current['plaque'] ?? null);
+            if ($plaque && trim($plaque) !== '' && $plaque !== ($current['plaque'] ?? null)) {
                 $plaqueCheckQuery = "SELECT COUNT(*) as count FROM vehicule_plaque WHERE plaque = :plaque AND id != :id";
                 $plaqueCheckStmt = $this->db->prepare($plaqueCheckQuery);
                 $plaqueCheckStmt->bindParam(':plaque', $plaque);
@@ -323,34 +325,65 @@ class VehiculeController extends BaseController {
             $stmt = $this->db->prepare($query);
             
             // Gestion des images
-            $images = !empty($vehicleImages) ? json_encode($vehicleImages) : $f('images', '[]');
+            $existingImagesRaw = $current['images'] ?? '';
+            $existingImages = [];
+            if (is_string($existingImagesRaw) && trim($existingImagesRaw) !== '') {
+                $decoded = json_decode($existingImagesRaw, true);
+                if (is_array($decoded)) {
+                    $existingImages = $decoded;
+                } else {
+                    if (strpos($existingImagesRaw, ',') !== false) {
+                        $existingImages = array_map('trim', explode(',', $existingImagesRaw));
+                    } else {
+                        $existingImages = [$existingImagesRaw];
+                    }
+                }
+            }
+
+            $mergedImages = [];
+            foreach (array_merge($existingImages, $vehicleImages) as $img) {
+                if (!is_string($img)) {
+                    continue;
+                }
+                $img = trim($img);
+                if ($img === '') {
+                    continue;
+                }
+                $mergedImages[$img] = true;
+            }
+
+            if (!empty($vehicleImages)) {
+                $images = json_encode(array_keys($mergedImages));
+            } else {
+                $images = (is_string($existingImagesRaw) && $existingImagesRaw !== '') ? $existingImagesRaw : '[]';
+            }
             
             $stmt->bindValue(':id', $id);
             $stmt->bindValue(':images', $images);
-            $stmt->bindValue(':marque', $f('marque'));
-            $stmt->bindValue(':annee', $f('annee'));
-            $stmt->bindValue(':couleur', $f('couleur'));
-            $stmt->bindValue(':modele', $f('modele'));
-            $stmt->bindValue(':numero_chassis', $f('numero_chassis'));
-            $stmt->bindValue(':frontiere_entree', $f('frontiere_entree'));
-            $stmt->bindValue(':date_importation', $f('date_importation'));
-            $stmt->bindValue(':plaque', $f('plaque'));
-            $stmt->bindValue(':plaque_valide_le', $f('plaque_valide_le'));
-            $stmt->bindValue(':plaque_expire_le', $f('plaque_expire_le'));
-            $stmt->bindValue(':en_circulation', $f('en_circulation', '1'));
-            $stmt->bindValue(':nume_assurance', $f('nume_assurance'));
-            $stmt->bindValue(':date_expire_assurance', $f('date_expire_assurance'));
-            $stmt->bindValue(':date_valide_assurance', $f('date_valide_assurance'));
-            $stmt->bindValue(':societe_assurance', $f('societe_assurance'));
-            $stmt->bindValue(':genre', $f('genre'));
-            $stmt->bindValue(':usage', $f('usage'));
-            $stmt->bindValue(':numero_declaration', $f('numero_declaration'));
-            $stmt->bindValue(':num_moteur', $f('num_moteur'));
-            $stmt->bindValue(':origine', $f('origine'));
-            $stmt->bindValue(':source', $f('source'));
-            $stmt->bindValue(':annee_fab', $f('annee_fab'));
-            $stmt->bindValue(':annee_circ', $f('annee_circ'));
-            $stmt->bindValue(':type_em', $f('type_em'));
+            $stmt->bindValue(':marque', $f('marque', $current['marque'] ?? null));
+            $stmt->bindValue(':annee', $f('annee', $current['annee'] ?? null));
+            $stmt->bindValue(':couleur', $f('couleur', $current['couleur'] ?? null));
+            $stmt->bindValue(':modele', $f('modele', $current['modele'] ?? null));
+            $stmt->bindValue(':numero_chassis', $f('numero_chassis', $current['numero_chassis'] ?? null));
+            $stmt->bindValue(':frontiere_entree', $f('frontiere_entree', $current['frontiere_entree'] ?? null));
+            $stmt->bindValue(':date_importation', $f('date_importation', $current['date_importation'] ?? null));
+            $stmt->bindValue(':plaque', $plaque);
+            $stmt->bindValue(':plaque_valide_le', $f('plaque_valide_le', $current['plaque_valide_le'] ?? null));
+            $stmt->bindValue(':plaque_expire_le', $f('plaque_expire_le', $current['plaque_expire_le'] ?? null));
+            $stmt->bindValue(':en_circulation', $f('en_circulation', $current['en_circulation'] ?? '1'));
+            $stmt->bindValue(':nume_assurance', $f('nume_assurance', $current['nume_assurance'] ?? null));
+            $stmt->bindValue(':date_expire_assurance', $f('date_expire_assurance', $current['date_expire_assurance'] ?? null));
+            $stmt->bindValue(':date_valide_assurance', $f('date_valide_assurance', $current['date_valide_assurance'] ?? null));
+            $stmt->bindValue(':societe_assurance', $f('societe_assurance', $current['societe_assurance'] ?? null));
+            $stmt->bindValue(':genre', $f('genre', $current['genre'] ?? null));
+            $stmt->bindValue(':usage', $f('usage', $current['usage'] ?? null));
+            $stmt->bindValue(':numero_declaration', $f('numero_declaration', $current['numero_declaration'] ?? null));
+            $stmt->bindValue(':num_moteur', $f('num_moteur', $current['num_moteur'] ?? null));
+            $stmt->bindValue(':origine', $f('origine', $current['origine'] ?? null));
+            $stmt->bindValue(':source', $f('source', $current['source'] ?? null));
+            $stmt->bindValue(':annee_fab', $f('annee_fab', $current['annee_fab'] ?? null));
+            $stmt->bindValue(':annee_circ', $f('annee_circ', $current['annee_circ'] ?? null));
+            $stmt->bindValue(':type_em', $f('type_em', $current['type_em'] ?? null));
             
             if ($stmt->execute()) {
                 return [

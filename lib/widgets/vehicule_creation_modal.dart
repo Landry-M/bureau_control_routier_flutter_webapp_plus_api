@@ -16,7 +16,7 @@ class VehiculeCreationModal extends StatefulWidget {
 class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
   final _formKey = GlobalKey<FormState>();
   final _vehiculeService = VehiculeService();
-  
+
   // Controllers pour les champs
   final _marqueController = TextEditingController();
   final _modeleController = TextEditingController();
@@ -32,7 +32,7 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
   final _societeAssuranceController = TextEditingController();
   final _dateValideAssuranceController = TextEditingController();
   final _dateExpireAssuranceController = TextEditingController();
-  
+
   // Détails techniques DGI
   final _genreController = TextEditingController();
   final _usageController = TextEditingController();
@@ -43,7 +43,7 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
   final _anneeFabController = TextEditingController();
   final _anneeCircController = TextEditingController();
   final _typeEmController = TextEditingController();
-  
+
   // Contravention
   final _cvDateInfractionController = TextEditingController();
   final _cvLieuController = TextEditingController();
@@ -51,10 +51,11 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
   final _cvDescriptionController = TextEditingController();
   final _cvReferenceLoi = TextEditingController();
   final _cvAmendeController = TextEditingController();
-  
+
   bool _withContravention = false;
   bool _cvPayed = false;
   bool _isLoading = false;
+  bool _isSearchingPlaque = false;
   List<PlatformFile> _vehicleFiles = [];
   List<PlatformFile> _contraventionFiles = [];
 
@@ -135,7 +136,7 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Informations du véhicule', 
+            const Text('Informations du véhicule',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             _buildVehicleImagePicker(),
@@ -149,7 +150,8 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
                       labelText: 'Marque *',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (value) => value?.isEmpty == true ? 'Requis' : null,
+                    validator: (value) =>
+                        value?.isEmpty == true ? 'Requis' : null,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -184,7 +186,8 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
                       labelText: 'Couleur *',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (value) => value?.isEmpty == true ? 'Requis' : null,
+                    validator: (value) =>
+                        value?.isEmpty == true ? 'Requis' : null,
                   ),
                 ),
               ],
@@ -237,7 +240,7 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Plaque d\'immatriculation', 
+            const Text('Plaque d\'immatriculation',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             Row(
@@ -253,8 +256,14 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: _searchPlaque,
-                  child: const Text('Rechercher'),
+                  onPressed: _isSearchingPlaque ? null : _searchPlaque,
+                  child: _isSearchingPlaque
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Rechercher'),
                 ),
               ],
             ),
@@ -301,7 +310,7 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Détails techniques (DGI)', 
+            const Text('Détails techniques (DGI)',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             Row(
@@ -372,7 +381,7 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Informations d\'assurance', 
+            const Text('Informations d\'assurance',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             Row(
@@ -463,7 +472,7 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Contravention', 
+            const Text('Contravention',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             Row(
@@ -596,7 +605,8 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
     );
   }
 
-  Widget _buildThumbnails(List<PlatformFile> files, void Function(PlatformFile) onRemove) {
+  Widget _buildThumbnails(
+      List<PlatformFile> files, void Function(PlatformFile) onRemove) {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -620,7 +630,8 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
                     : Center(
                         child: Text(
                           (f.extension ?? 'file').toUpperCase(),
-                          style: const TextStyle(fontSize: 11, color: Colors.black54),
+                          style: const TextStyle(
+                              fontSize: 11, color: Colors.black54),
                         ),
                       ),
               ),
@@ -723,14 +734,14 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
       lastDate: DateTime(2100),
       builder: buildThemedPicker,
     );
-    
+
     if (date != null) {
       final time = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.now(),
         builder: buildThemedPicker,
       );
-      
+
       if (time != null) {
         final dateTime = DateTime(
           date.year,
@@ -746,34 +757,63 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
 
   Future<void> _searchPlaque() async {
     if (_plaqueController.text.isEmpty) return;
-    
+
+    setState(() {
+      _isSearchingPlaque = true;
+    });
+
     try {
-      final result = await _vehiculeService.searchPlaque(_plaqueController.text);
-      if (result != null) {
-        // Pré-remplir les champs avec les données trouvées
-        _marqueController.text = result['marque'] ?? '';
-        _modeleController.text = result['modele'] ?? '';
-        _couleurController.text = result['couleur'] ?? '';
-        // ... autres champs
-        
-        NotificationService.success(context, 'Données trouvées et pré-remplies');
+      final data =
+          await _vehiculeService.fetchCrptVehiculeInfo(_plaqueController.text);
+
+      if (data.isEmpty) {
+        NotificationService.info(context,
+            'Aucune donnée trouvée sur CRPT pour cette plaque (ou page non lisible)');
+        return;
       }
+
+      // Pré-remplir les champs avec les données trouvées
+      _marqueController.text = (data['marque'] ?? '').toString();
+      _modeleController.text = (data['modele'] ?? '').toString();
+      _anneeController.text = (data['annee'] ?? '').toString();
+      _couleurController.text = (data['couleur'] ?? '').toString();
+      _numeroChassisController.text = (data['numero_chassis'] ?? '').toString();
+
+      _genreController.text = (data['genre'] ?? '').toString();
+      _usageController.text = (data['usage'] ?? '').toString();
+      _numeroDeclarationController.text =
+          (data['numero_declaration'] ?? '').toString();
+      _numMoteurController.text = (data['num_moteur'] ?? '').toString();
+      _origineController.text = (data['origine'] ?? '').toString();
+      _sourceController.text = (data['source'] ?? '').toString();
+      _anneeFabController.text = (data['annee_fab'] ?? '').toString();
+      _anneeCircController.text = (data['annee_circ'] ?? '').toString();
+      _typeEmController.text = (data['type_em'] ?? '').toString();
+
+      NotificationService.success(
+          context, 'Données CRPT récupérées et pré-remplies');
     } catch (e) {
       String errorMessage = e.toString();
       if (errorMessage.startsWith('Exception: ')) {
         errorMessage = errorMessage.substring(11);
       }
       NotificationService.error(context, errorMessage);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSearchingPlaque = false;
+        });
+      }
     }
   }
 
   Future<void> _saveVehicule() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       final data = {
         'marque': _marqueController.text,
@@ -801,7 +841,7 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
         'type_em': _typeEmController.text,
         'with_contravention': _withContravention ? '1' : '0',
       };
-      
+
       if (_withContravention) {
         data.addAll({
           'cv_date_infraction': _cvDateInfractionController.text,
@@ -813,18 +853,20 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
           'cv_payed': _cvPayed ? '1' : '0',
         });
       }
-      
+
       final result = await _vehiculeService.createVehicule(
         data,
         _vehicleFiles,
         _contraventionFiles,
       );
-      
+
       if (result['success'] == true || result['state'] == true) {
         Navigator.of(context).pop();
-        NotificationService.success(context, result['message'] ?? 'Véhicule créé avec succès');
+        NotificationService.success(
+            context, result['message'] ?? 'Véhicule créé avec succès');
       } else {
-        final errorMessage = result['message'] ?? 'Erreur lors de la création du véhicule';
+        final errorMessage =
+            result['message'] ?? 'Erreur lors de la création du véhicule';
         NotificationService.error(context, errorMessage);
       }
     } catch (e) {

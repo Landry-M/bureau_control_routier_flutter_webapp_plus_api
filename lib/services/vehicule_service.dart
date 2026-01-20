@@ -9,9 +9,7 @@ class VehiculeService {
   final ApiClient _apiClient;
 
   VehiculeService({ApiClient? apiClient})
-      : _apiClient =
-            apiClient ?? ApiClient(baseUrl: ApiConfig.baseUrl);
-  
+      : _apiClient = apiClient ?? ApiClient(baseUrl: ApiConfig.baseUrl);
 
   /// Crée un nouveau véhicule avec ou sans contravention
   Future<Map<String, dynamic>> createVehicule(
@@ -55,12 +53,13 @@ class VehiculeService {
       );
 
       final responseData = json.decode(response.body);
-      
+
       if (response.statusCode == 200) {
         return responseData;
       } else {
         // Extraire uniquement le message d'erreur du JSON
-        final errorMessage = responseData['message'] ?? 'Erreur lors de la création du véhicule';
+        final errorMessage =
+            responseData['message'] ?? 'Erreur lors de la création du véhicule';
         throw Exception(errorMessage);
       }
     } catch (e) {
@@ -98,7 +97,9 @@ class VehiculeService {
       } else {
         // Debug: afficher la réponse complète pour diagnostiquer
         print('DEBUG VehiculeService - Réponse API: $data');
-        final errorMessage = data['message'] ?? data['error'] ?? 'Erreur lors de la récupération des véhicules';
+        final errorMessage = data['message'] ??
+            data['error'] ??
+            'Erreur lors de la récupération des véhicules';
         throw Exception(errorMessage);
       }
     } catch (e) {
@@ -111,9 +112,10 @@ class VehiculeService {
   }
 
   /// Recherche locale renvoyant toutes les correspondances pour une plaque/texte
-  Future<List<Map<String, dynamic>>> searchLocal(String query, {String? username}) async {
-    final queryParams = 'q=${Uri.encodeComponent(query)}' + 
-                       (username != null ? '&username=${Uri.encodeComponent(username)}' : '');
+  Future<List<Map<String, dynamic>>> searchLocal(String query,
+      {String? username}) async {
+    final queryParams = 'q=${Uri.encodeComponent(query)}' +
+        (username != null ? '&username=${Uri.encodeComponent(username)}' : '');
     final resp = await _apiClient.get('/vehicules/search?$queryParams');
     final data = json.decode(resp.body);
     if (data is Map<String, dynamic>) {
@@ -129,17 +131,18 @@ class VehiculeService {
   /// Recherche spécifique par plaque dans la table vehicule_plaque
   Future<List<Map<String, dynamic>>> searchByPlaque(String plaque) async {
     try {
-      final response = await _apiClient.get('/vehicules?search=${Uri.encodeComponent(plaque)}');
-      
+      final response = await _apiClient
+          .get('/vehicules?search=${Uri.encodeComponent(plaque)}');
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        
+
         if (data['success'] == true || data['ok'] == true) {
           final items = data['data'] ?? data['items'] ?? [];
           return List<Map<String, dynamic>>.from(items);
         }
       }
-      
+
       return [];
     } catch (e) {
       // Si c'est déjà une exception, la relancer telle quelle
@@ -151,12 +154,16 @@ class VehiculeService {
   }
 
   /// Recherche une plaque d'immatriculation (locale puis DGI)
-  Future<Map<String, dynamic>?> searchPlaque(String plate, {String? username}) async {
+  Future<Map<String, dynamic>?> searchPlaque(String plate,
+      {String? username}) async {
     try {
       // 1. Recherche locale
-      final queryParams = 'q=${Uri.encodeComponent(plate)}' + 
-                         (username != null ? '&username=${Uri.encodeComponent(username)}' : '');
-      final localResponse = await _apiClient.get('/vehicules/search?$queryParams');
+      final queryParams = 'q=${Uri.encodeComponent(plate)}' +
+          (username != null
+              ? '&username=${Uri.encodeComponent(username)}'
+              : '');
+      final localResponse =
+          await _apiClient.get('/vehicules/search?$queryParams');
       final localData = json.decode(localResponse.body);
 
       if (localData is Map<String, dynamic> &&
@@ -186,6 +193,40 @@ class VehiculeService {
     }
   }
 
+  Future<Map<String, dynamic>> fetchCrptVehiculeInfo(String plaque) async {
+    try {
+      final normalized = plaque.trim();
+      if (normalized.isEmpty) {
+        throw Exception('Plaque invalide');
+      }
+
+      final resp = await _apiClient.get(
+        '/vehicule/crpt?plaque=${Uri.encodeComponent(normalized)}',
+      );
+
+      final data = json.decode(resp.body);
+      if (resp.statusCode == 200 && data is Map<String, dynamic>) {
+        if (data['success'] == true) {
+          final payload = data['data'];
+          if (payload is Map<String, dynamic>) {
+            return Map<String, dynamic>.from(payload);
+          }
+          return <String, dynamic>{};
+        }
+        final msg = (data['message'] ?? 'Erreur lors de la récupération CRPT')
+            .toString();
+        throw Exception(msg);
+      }
+
+      throw Exception('Erreur serveur: ${resp.statusCode}');
+    } catch (e) {
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Erreur lors de la récupération CRPT');
+    }
+  }
+
   /// Récupère un véhicule par ID interne
   Future<Map<String, dynamic>?> getVehiculeById(int id) async {
     try {
@@ -193,10 +234,10 @@ class VehiculeService {
       if (resp.statusCode >= 200 && resp.statusCode < 300) {
         final data = json.decode(resp.body);
         print('📦 Réponse API pour véhicule $id: $data'); // Debug
-        
+
         // L'API retourne 'state' ou 'success' selon l'endpoint
-        if (data is Map<String, dynamic> && 
-            (data['success'] == true || data['state'] == true) && 
+        if (data is Map<String, dynamic> &&
+            (data['success'] == true || data['state'] == true) &&
             data['data'] != null) {
           return Map<String, dynamic>.from(data['data']);
         }
@@ -221,7 +262,8 @@ class VehiculeService {
         return data;
       } else {
         final data = json.decode(response.body);
-        final errorMessage = data['message'] ?? 'Erreur lors du retrait du véhicule';
+        final errorMessage =
+            data['message'] ?? 'Erreur lors du retrait du véhicule';
         throw Exception(errorMessage);
       }
     } catch (e) {
@@ -235,20 +277,22 @@ class VehiculeService {
   /// Récupère le propriétaire d'un véhicule via la table particulier_vehicule
   Future<Map<String, dynamic>?> getProprietaireVehicule(int vehiculeId) async {
     try {
-      final response = await _apiClient.get('/vehicule/$vehiculeId/proprietaire');
+      final response =
+          await _apiClient.get('/vehicule/$vehiculeId/proprietaire');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        
+
         // Vérifier si un propriétaire a été trouvé
         if (data['success'] == true && data['data'] != null) {
           return Map<String, dynamic>.from(data['data']);
         }
-        
+
         return null; // Pas de propriétaire trouvé
       } else {
         final data = json.decode(response.body);
-        final errorMessage = data['message'] ?? 'Erreur lors de la récupération du propriétaire';
+        final errorMessage =
+            data['message'] ?? 'Erreur lors de la récupération du propriétaire';
         throw Exception(errorMessage);
       }
     } catch (e) {
