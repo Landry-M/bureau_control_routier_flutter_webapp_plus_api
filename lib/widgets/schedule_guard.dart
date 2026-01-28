@@ -26,18 +26,12 @@ class _ScheduleGuardState extends State<ScheduleGuard> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final authProvider = context.read<AuthProvider>();
-        
-        // Définir le callback de violation des horaires
+
+        // Définir UNIQUEMENT le callback de violation des horaires
+        // (InactivityGuard gère onInactivityTimeout pour éviter l'écrasement)
         authProvider.onScheduleViolation = () {
           if (mounted) {
             _handleScheduleViolation();
-          }
-        };
-        
-        // Définir le callback de timeout d'inactivité
-        authProvider.onInactivityTimeout = () {
-          if (mounted) {
-            _handleInactivityTimeout();
           }
         };
       }
@@ -46,7 +40,7 @@ class _ScheduleGuardState extends State<ScheduleGuard> {
 
   void _handleScheduleViolation() {
     final authProvider = context.read<AuthProvider>();
-    
+
     // Afficher une notification
     NotificationService.warning(
       context,
@@ -54,27 +48,7 @@ class _ScheduleGuardState extends State<ScheduleGuard> {
       title: 'Session expirée',
       duration: const Duration(seconds: 6),
     );
-    
-    // Déconnexion
-    authProvider.logout().then((_) {
-      if (mounted) {
-        // Rediriger vers la page de connexion
-        context.go('/login');
-      }
-    });
-  }
-  
-  void _handleInactivityTimeout() {
-    final authProvider = context.read<AuthProvider>();
-    
-    // Afficher une notification
-    NotificationService.warning(
-      context,
-      'Votre session a expiré en raison d\'une inactivité prolongée (1 heure).',
-      title: 'Session expirée',
-      duration: const Duration(seconds: 6),
-    );
-    
+
     // Déconnexion
     authProvider.logout().then((_) {
       if (mounted) {

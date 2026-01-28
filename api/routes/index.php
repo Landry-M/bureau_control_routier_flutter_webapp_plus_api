@@ -533,44 +533,73 @@ switch (true) {
                 $verifySsl = !Environment::isDebugMode();
             }
 
-            $ch = curl_init($url);
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_TIMEOUT => 15,
-                CURLOPT_CONNECTTIMEOUT => 10,
-                CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; bcr/1.0)',
-                CURLOPT_SSL_VERIFYPEER => $verifySsl,
-                CURLOPT_SSL_VERIFYHOST => $verifySsl ? 2 : 0,
-                CURLOPT_SSLVERSION => defined('CURL_SSLVERSION_TLSv1_2') ? CURL_SSLVERSION_TLSv1_2 : 0,
-            ]);
+            $maxAttempts = 3;
+            $attempt = 0;
+            $html = false;
+            $curlErrno = 0;
+            $curlError = '';
+            $statusCode = 0;
 
-            if ($caFile !== null) {
-                curl_setopt($ch, CURLOPT_CAINFO, $caFile);
-            }
+            while ($attempt < $maxAttempts) {
+                $attempt++;
 
-            $html = curl_exec($ch);
-            $curlErrno = curl_errno($ch);
-            $curlError = curl_error($ch);
-            $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-
-            if (($curlErrno === 60 || $curlErrno === 51) && Environment::isDebugMode()) {
                 $ch = curl_init($url);
                 curl_setopt_array($ch, [
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_FOLLOWLOCATION => true,
-                    CURLOPT_TIMEOUT => 15,
-                    CURLOPT_CONNECTTIMEOUT => 10,
+                    CURLOPT_TIMEOUT => 30,
+                    CURLOPT_CONNECTTIMEOUT => 15,
                     CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; bcr/1.0)',
-                    CURLOPT_SSL_VERIFYPEER => false,
-                    CURLOPT_SSL_VERIFYHOST => 0,
+                    CURLOPT_SSL_VERIFYPEER => $verifySsl,
+                    CURLOPT_SSL_VERIFYHOST => $verifySsl ? 2 : 0,
+                    CURLOPT_SSLVERSION => defined('CURL_SSLVERSION_TLSv1_2') ? CURL_SSLVERSION_TLSv1_2 : 0,
                 ]);
+
+                if ($caFile !== null) {
+                    curl_setopt($ch, CURLOPT_CAINFO, $caFile);
+                }
+
                 $html = curl_exec($ch);
                 $curlErrno = curl_errno($ch);
                 $curlError = curl_error($ch);
                 $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
                 curl_close($ch);
+
+                if (($curlErrno === 60 || $curlErrno === 51) && Environment::isDebugMode()) {
+                    $ch = curl_init($url);
+                    curl_setopt_array($ch, [
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_TIMEOUT => 30,
+                        CURLOPT_CONNECTTIMEOUT => 15,
+                        CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; bcr/1.0)',
+                        CURLOPT_SSL_VERIFYPEER => false,
+                        CURLOPT_SSL_VERIFYHOST => 0,
+                    ]);
+                    $html = curl_exec($ch);
+                    $curlErrno = curl_errno($ch);
+                    $curlError = curl_error($ch);
+                    $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    curl_close($ch);
+                }
+
+                $shouldRetry = false;
+                if ($curlErrno === 28 || $curlErrno === 7 || $curlErrno === 52 || $curlErrno === 56) {
+                    $shouldRetry = true;
+                }
+                if ($html === false) {
+                    $shouldRetry = true;
+                }
+                if ($curlErrno === 0 && $html !== false && in_array((int)$statusCode, [429, 500, 502, 503, 504], true)) {
+                    $shouldRetry = true;
+                }
+
+                if ($shouldRetry && $attempt < $maxAttempts) {
+                    usleep(300000 * $attempt);
+                    continue;
+                }
+
+                break;
             }
 
             if ($curlErrno !== 0 || $html === false) {
@@ -579,6 +608,13 @@ switch (true) {
                     echo json_encode([
                         'success' => false,
                         'message' => 'Erreur SSL vers CRPT. Configurez un CA bundle (php.ini curl.cainfo/openssl.cafile) ou installez les certificats CA sur le serveur.'
+                    ]);
+                    break;
+                }
+                if ($curlErrno === 28) {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'DGI/CRPT trop lent ou indisponible (timeout). Réessayez.'
                     ]);
                     break;
                 }
@@ -619,15 +655,28 @@ switch (true) {
                             $isCouleur = stripos($alias, 'couleur') !== false;
                             $options = $xpath->query('.//option', $node);
 
+                            $isPlaceholder = function($s) {
+                                $s = trim((string)$s);
+                                if ($s === '') return false;
+                                return (stripos($s, 'sélection') !== false) ||
+                                       (stripos($s, 'selection') !== false) ||
+                                       (stripos($s, 'choisir') !== false) ||
+                                       (stripos($s, 'couleur du véhicule') !== false);
+                            };
+
                             if ($isCouleur) {
                                 $selected = $xpath->query('.//option[@selected]', $node);
                                 if ($selected && $selected->length > 0) {
                                     $v = $selected->item(0)->getAttribute('value');
                                     $v = is_string($v) ? trim($v) : '';
-                                    if ($v !== '') return $v;
+                                    if ($v !== '' && !$isPlaceholder($v)) return $v;
                                     $v = trim($selected->item(0)->textContent);
-                                    if ($v !== '') return $v;
+                                    if ($v !== '' && !$isPlaceholder($v)) return $v;
                                 }
+
+                                $valueAttr = $node->getAttribute('value');
+                                $valueAttr = is_string($valueAttr) ? trim($valueAttr) : '';
+                                if ($valueAttr !== '' && !$isPlaceholder($valueAttr)) return $valueAttr;
                             }
 
                             if ($options && $options->length >= 2) {
@@ -635,10 +684,10 @@ switch (true) {
                                 if ($opt) {
                                     $optValue = $opt->getAttribute('value');
                                     $optValue = is_string($optValue) ? trim($optValue) : '';
-                                    if ($optValue !== '') return $optValue;
+                                    if ($optValue !== '' && (!$isCouleur || !$isPlaceholder($optValue))) return $optValue;
 
                                     $optText = trim($opt->textContent);
-                                    if ($optText !== '') return $optText;
+                                    if ($optText !== '' && (!$isCouleur || !$isPlaceholder($optText))) return $optText;
                                 }
                             }
 
@@ -655,7 +704,7 @@ switch (true) {
 
                             $valueAttr = $node->getAttribute('value');
                             $valueAttr = is_string($valueAttr) ? trim($valueAttr) : '';
-                            if ($valueAttr !== '') return $valueAttr;
+                            if ($valueAttr !== '' && (!$isCouleur || !$isPlaceholder($valueAttr))) return $valueAttr;
 
                             continue;
                         }

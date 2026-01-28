@@ -204,17 +204,25 @@ class VehiculeService {
         '/vehicule/crpt?plaque=${Uri.encodeComponent(normalized)}',
       );
 
-      final data = json.decode(resp.body);
-      if (resp.statusCode == 200 && data is Map<String, dynamic>) {
-        if (data['success'] == true) {
-          final payload = data['data'];
+      dynamic decoded;
+      try {
+        decoded = json.decode(resp.body);
+      } catch (_) {
+        decoded = null;
+      }
+
+      if (decoded is Map<String, dynamic>) {
+        if (resp.statusCode == 200 && decoded['success'] == true) {
+          final payload = decoded['data'];
           if (payload is Map<String, dynamic>) {
             return Map<String, dynamic>.from(payload);
           }
           return <String, dynamic>{};
         }
-        final msg = (data['message'] ?? 'Erreur lors de la récupération CRPT')
-            .toString();
+
+        final msg =
+            (decoded['message'] ?? 'Erreur lors de la récupération CRPT')
+                .toString();
         throw Exception(msg);
       }
 

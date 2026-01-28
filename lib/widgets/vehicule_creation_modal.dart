@@ -173,7 +173,7 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
                   child: TextFormField(
                     controller: _anneeController,
                     decoration: const InputDecoration(
-                      labelText: 'Année',
+                      labelText: 'Année de fabrication',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -775,7 +775,9 @@ class _VehiculeCreationModalState extends State<VehiculeCreationModal> {
       // Pré-remplir les champs avec les données trouvées
       _marqueController.text = (data['marque'] ?? '').toString();
       _modeleController.text = (data['modele'] ?? '').toString();
-      _anneeController.text = (data['annee'] ?? '').toString();
+      final anneeFab = (data['annee_fab'] ?? '').toString().trim();
+      final annee = (data['annee'] ?? '').toString().trim();
+      _anneeController.text = anneeFab.isNotEmpty ? anneeFab : annee;
       _couleurController.text = (data['couleur'] ?? '').toString();
       _numeroChassisController.text = (data['numero_chassis'] ?? '').toString();
 
