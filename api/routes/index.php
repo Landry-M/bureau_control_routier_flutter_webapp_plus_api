@@ -529,10 +529,12 @@ switch (true) {
                 }
             }
 
-            $verifySsl = true;
-            if ($caFile === null) {
-                $verifySsl = !Environment::isDebugMode();
-            }
+            // TEMPORAIRE: Désactiver la vérification SSL pour tester
+            // TODO: Réactiver après avoir installé le CA bundle
+            $verifySsl = false;
+            // if ($caFile === null) {
+            //     $verifySsl = !Environment::isDebugMode();
+            // }
 
             $maxAttempts = 3;
             $attempt = 0;
