@@ -512,6 +512,7 @@ switch (true) {
             $url = 'https://crpt.valornet-rdc.com/register/' . rawurlencode($plaque);
 
             $caCandidates = [
+                __DIR__ . '/../cacert.pem',  // Bundle CA téléchargé
                 '/etc/ssl/certs/ca-certificates.crt',
                 '/etc/ssl/cert.pem',
                 '/usr/local/etc/openssl@3/cert.pem',
